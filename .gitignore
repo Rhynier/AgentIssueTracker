@@ -1,0 +1,5 @@
+node_modules/
+dist/
+issues.json
+issues.json.tmp
+*.js.map

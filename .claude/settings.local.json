@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:mcpcat.io)",
+      "Bash(cd /c/Source/Prototypes/AgentIssueTracker && npm run build 2>&1)"
+    ]
+  }
+}
