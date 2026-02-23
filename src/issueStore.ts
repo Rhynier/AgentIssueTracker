@@ -52,7 +52,7 @@ export async function addIssue(
 
 /**
  * Tool: get_next_issue
- * Returns the most recently created issue with status "created" (LIFO).
+ * Returns the oldest issue with status "created" (FIFO).
  * Sets its status to "in_progress" and records a history entry.
  * Returns null if no issues are available.
  */
@@ -63,8 +63,8 @@ export async function getNextIssue(agent: string): Promise<Issue | null> {
 
   if (candidates.length === 0) return null;
 
-  // LIFO: take the last candidate (highest array index = most recently added)
-  const { issue, index } = candidates[candidates.length - 1]!;
+  // FIFO: take the first candidate (lowest array index = oldest created)
+  const { issue, index } = candidates[0]!;
 
   const timestamp = now();
   store.issues[index] = {

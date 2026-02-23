@@ -46,7 +46,7 @@ export function createMcpServer(): McpServer {
 
   server.tool(
     "get_next_issue",
-    "Retrieve the next available issue to work on (LIFO order). Sets status to in_progress.",
+    "Retrieve the next available issue to work on (FIFO order). Sets status to in_progress.",
     {
       agent: z
         .string()
