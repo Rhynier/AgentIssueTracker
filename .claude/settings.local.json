@@ -5,7 +5,9 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:mcpcat.io)",
-      "Bash(cd /c/Source/Prototypes/AgentIssueTracker && npm run build 2>&1)"
+      "Bash(cd /c/Source/Prototypes/AgentIssueTracker && npm run build 2>&1)",
+      "WebFetch(domain:docs.github.com)",
+      "WebFetch(domain:code.visualstudio.com)"
     ]
   }
 }
