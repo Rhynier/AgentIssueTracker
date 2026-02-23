@@ -26,14 +26,62 @@ When asked to work on the next issue:
 1. Call `get_next_issue` with `agent: "developer-agent"`.
 2. If no issue is available, say so and stop.
 3. Read the issue carefully. Confirm your understanding of the task before making changes.
-4. Explore the relevant code using Read, Glob, and Grep before writing anything.
-5. Implement the change. Prefer small, focused edits over large rewrites.
-6. If you complete the work, call `close_issue` with `resolution: "completed"` and a comment describing what you did and which files were changed.
-7. If you cannot complete the work (missing context, blocked by another issue, out of scope), call `return_issue` with a comment explaining the blocker clearly enough for the next agent.
+4. Create a git worktree for the issue (see **Git worktree workflow** below).
+5. Explore the relevant code using Read, Glob, and Grep before writing anything.
+6. Implement the change inside the worktree. Prefer small, focused edits over large rewrites.
+7. Commit your changes and remove the worktree (see below).
+8. If you complete the work, call `close_issue` with `resolution: "completed"` and a comment describing what you did, which files were changed, and the branch name where the work lives.
+9. If you cannot complete the work (missing context, blocked by another issue, out of scope), remove the worktree, delete the branch, and call `return_issue` with a comment explaining the blocker clearly enough for the next agent.
 
 ## Working on a specific issue
 
 If given a specific issue ID to work on, skip `get_next_issue` and proceed directly to step 3 above using the provided ID.
+
+## Git worktree workflow
+
+All file changes must be made inside a dedicated git worktree, never in the main working tree.
+
+### Creating the worktree
+
+Use the first 8 characters of the issue ID to keep branch names short. Run these commands from the repository root:
+
+```bash
+ISSUE_SHORT=<first 8 chars of issue id>
+BRANCH="dev/issue-${ISSUE_SHORT}"
+git worktree add ".worktrees/${BRANCH}" -b "${BRANCH}"
+```
+
+All subsequent file reads and edits must target paths inside `.worktrees/${BRANCH}/`.
+
+### Committing
+
+When the work is complete and verified, commit from within the worktree:
+
+```bash
+git -C ".worktrees/${BRANCH}" add -p   # stage only intentional changes
+git -C ".worktrees/${BRANCH}" commit -m "dev: resolve issue ${ISSUE_SHORT} - <one-line summary>"
+```
+
+Do not use `git add .` or `git add -A` — stage files explicitly to avoid committing unintended artefacts.
+
+### Removing the worktree
+
+After committing, remove the worktree. The branch is preserved so a human can review and merge it.
+
+```bash
+git worktree remove ".worktrees/${BRANCH}"
+```
+
+Include the branch name (`dev/issue-{short-id}`) in the `close_issue` comment so reviewers know where to find the changes.
+
+### If work cannot be completed
+
+Remove the worktree and delete the branch before returning the issue — do not leave orphaned branches:
+
+```bash
+git worktree remove ".worktrees/${BRANCH}"
+git branch -D "${BRANCH}"
+```
 
 ## General development principles
 

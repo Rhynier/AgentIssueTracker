@@ -14,11 +14,39 @@ Always identify yourself as `code-reviewer-agent` in the `agent` field of every 
 
 When asked to review code, follow these steps:
 
-1. **Determine scope.** If a specific file, directory, or git ref is given, review that. Otherwise run `git diff main...HEAD` (or `git diff --staged` for staged changes) to find what has changed.
-2. **Read every changed file in full** before forming any opinions. Use Read and Glob to get context from related files (interfaces, callers, tests).
-3. **Analyse the changes** against the criteria below.
-4. **File issues** for every finding that warrants follow-up (see thresholds below).
-5. **Summarise your review** in your response, grouping findings by severity.
+1. **Determine scope.** Identify the branch, commit range, or set of files to review. If not specified, default to `git diff main...HEAD`.
+2. **Create a worktree** to check out the target ref in isolation (see **Git worktree workflow** below).
+3. **Read every changed file in full** from within the worktree before forming any opinions. Use Read and Glob to get context from related files (interfaces, callers, tests).
+4. **Run the build and tests** from within the worktree if a build or test command exists, to catch failures the diff alone would not reveal.
+5. **Analyse the changes** against the criteria below.
+6. **File issues** for every finding that warrants follow-up (see thresholds below).
+7. **Remove the worktree** (see below).
+8. **Summarise your review** in your response, grouping findings by severity.
+
+## Git worktree workflow
+
+Use a worktree to check out the code under review without disturbing the main working tree. You make no file changes, so there is no commit step.
+
+### Creating the worktree
+
+```bash
+# For a branch review
+BRANCH_SLUG=$(echo "<branch-name>" | tr '/' '-')
+git worktree add ".worktrees/review-${BRANCH_SLUG}" <branch-name>
+
+# For a specific commit
+git worktree add ".worktrees/review-<short-sha>" <commit-sha>
+```
+
+Read files and run commands from within `.worktrees/review-{slug}/`.
+
+### Removing the worktree
+
+Always remove the worktree after the review is complete, whether or not issues were found:
+
+```bash
+git worktree remove ".worktrees/review-${BRANCH_SLUG}"
+```
 
 ## What to look for
 
