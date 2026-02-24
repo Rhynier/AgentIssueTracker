@@ -236,8 +236,10 @@ List issues matching optional filters. This is a read-only query — it does not
 |---|---|---|
 | `status` | `created` \| `in_progress` \| `completed` \| `in_review` \| `closed` \| `rejected` (optional) | Only include issues with this status |
 | `classification` | `bug` \| `improvement` \| `feature` (optional) | Only include issues of this type |
+| `skip` | integer >= 0 (optional) | Number of matching issues to skip (for pagination). Defaults to 0 |
+| `take` | integer >= 1 (optional) | Maximum number of issues to return. Omit to return all remaining |
 
-Returns a JSON object with `count` (number of matches) and `issues` (array of summaries with `id`, `title`, `classification`, `status`, `createdAt`).
+Returns a JSON object with `count` (number of returned issues) and `issues` (array of summaries with `id`, `title`, `classification`, `status`, `createdAt`).
 
 ### `get_next_issue`
 

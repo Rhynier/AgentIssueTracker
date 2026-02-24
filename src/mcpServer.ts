@@ -59,10 +59,22 @@ export function createMcpServer(): McpServer {
         .enum(["bug", "improvement", "feature"])
         .optional()
         .describe("Filter by issue classification. Omit to include all types."),
+      skip: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe("Number of matching issues to skip (for pagination). Defaults to 0."),
+      take: z
+        .number()
+        .int()
+        .min(1)
+        .optional()
+        .describe("Maximum number of issues to return. Omit to return all remaining."),
     },
-    async ({ status, classification }) => {
+    async ({ status, classification, skip, take }) => {
       try {
-        const issues = listIssues(status, classification);
+        const issues = listIssues(status, classification, skip, take);
         const summary = issues.map((i) => ({
           id: i.id,
           title: i.title,

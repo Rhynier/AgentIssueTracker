@@ -165,6 +165,44 @@ describe("listIssues", () => {
     expect(store.listIssues("closed", "feature")).toHaveLength(0);
   });
 
+  it("applies skip to the filtered results", async () => {
+    await store.addIssue("A", "D", "bug", "agentA");
+    await store.addIssue("B", "D", "bug", "agentA");
+    await store.addIssue("C", "D", "bug", "agentA");
+
+    const result = store.listIssues("created", "bug", 1);
+    expect(result).toHaveLength(2);
+    expect(result[0]?.title).toBe("B");
+  });
+
+  it("applies take to limit the number of results", async () => {
+    await store.addIssue("A", "D", "bug", "agentA");
+    await store.addIssue("B", "D", "bug", "agentA");
+    await store.addIssue("C", "D", "bug", "agentA");
+
+    const result = store.listIssues("created", "bug", undefined, 2);
+    expect(result).toHaveLength(2);
+    expect(result[0]?.title).toBe("A");
+    expect(result[1]?.title).toBe("B");
+  });
+
+  it("applies skip and take together", async () => {
+    await store.addIssue("A", "D", "bug", "agentA");
+    await store.addIssue("B", "D", "bug", "agentA");
+    await store.addIssue("C", "D", "bug", "agentA");
+    await store.addIssue("D", "D", "bug", "agentA");
+
+    const result = store.listIssues("created", "bug", 1, 2);
+    expect(result).toHaveLength(2);
+    expect(result[0]?.title).toBe("B");
+    expect(result[1]?.title).toBe("C");
+  });
+
+  it("returns empty array when skip exceeds result count", async () => {
+    await store.addIssue("A", "D", "bug", "agentA");
+    expect(store.listIssues("created", "bug", 10)).toHaveLength(0);
+  });
+
   it("does not call saveIssues (read-only)", async () => {
     await store.addIssue("A", "D", "bug", "agentA");
     mockSaveIssues.mockClear();

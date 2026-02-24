@@ -19,13 +19,17 @@ export function getIssuesByStatus(status?: IssueStatus): Issue[] {
 
 export function listIssues(
   status?: IssueStatus,
-  classification?: IssueClassification
+  classification?: IssueClassification,
+  skip?: number,
+  take?: number
 ): Issue[] {
-  return store.issues.filter(
+  const filtered = store.issues.filter(
     (i) =>
       (status === undefined || i.status === status) &&
       (classification === undefined || i.classification === classification)
   );
+  const start = skip ?? 0;
+  return take === undefined ? filtered.slice(start) : filtered.slice(start, start + take);
 }
 
 /**

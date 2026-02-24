@@ -50,7 +50,7 @@ Closed states (`closed`, `rejected`) are terminal — no tool transitions out of
 | Tool | Key inputs | What it does |
 |---|---|---|
 | `add_issue` | title, description, classification, agent | Creates issue with status `created` |
-| `list_issues` | status?, classification? | Lists issues matching optional filters (read-only, no state change) |
+| `list_issues` | status?, classification?, skip?, take? | Lists issues matching optional filters with pagination (read-only, no state change) |
 | `get_next_issue` | agent, classification? | Takes oldest `created` issue (FIFO, optionally filtered by classification), sets it `in_progress`, returns full JSON |
 | `return_issue` | issue_id, comment, agent | Puts issue back to `created`; appends comment |
 | `complete_issue` | issue_id, comment, agent | Sets issue to `completed` (ready for review); appends comment |

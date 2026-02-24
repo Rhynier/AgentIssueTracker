@@ -140,8 +140,10 @@ Returns: confirmation text with the new issue ID and timestamp.
 |---|---|---|
 | `status` | `"created" \| "in_progress" \| "completed" \| "in_review" \| "closed" \| "rejected"` (optional) | Filter by lifecycle state |
 | `classification` | `"bug" \| "improvement" \| "feature"` (optional) | Filter by issue type |
+| `skip` | integer >= 0 (optional) | Number of matching issues to skip. Defaults to 0 |
+| `take` | integer >= 1 (optional) | Maximum number of issues to return. Omit to return all remaining |
 
-Read-only query. Does not claim or modify any issues — no history entry is appended. Returns a JSON object with `count` (number of matches) and `issues` (array of summaries containing `id`, `title`, `classification`, `status`, `createdAt`). Both parameters are optional; omitting both returns all issues. The team-lead agent uses this to check queue sizes before deciding which subagent to spawn.
+Read-only query. Does not claim or modify any issues — no history entry is appended. Filtering is applied first, then `skip` and `take` paginate the filtered results. Returns a JSON object with `count` (number of returned issues) and `issues` (array of summaries containing `id`, `title`, `classification`, `status`, `createdAt`). All parameters are optional; omitting all returns every issue. The team-lead agent uses this to check queue sizes before deciding which subagent to spawn.
 
 ### `get_next_issue`
 
