@@ -14,6 +14,7 @@ An MCP (Model Context Protocol) server for tracking issues across multiple AI ag
 - [Web UI](#web-ui)
 - [MCP tools reference](#mcp-tools-reference)
 - [Agent prompt files](#agent-prompt-files)
+- [Installing agent prompts](#installing-agent-prompts)
 - [Standalone bundle](#standalone-bundle)
 - [Environment variables](#environment-variables)
 
@@ -289,6 +290,34 @@ Mark an issue as done. This is a terminal state — closed issues cannot be reop
 | `resolution` | `closed` \| `rejected` | Final status |
 | `comment` | string | What was done or why it was rejected |
 | `agent` | string | Your agent's name (recorded in history) |
+
+---
+
+## Installing agent prompts
+
+Two helper scripts are included to copy the agent prompt files to where Claude Code can find them. Both scripts list the files and destination, then ask for confirmation before copying.
+
+**Bash** (macOS / Linux / Git Bash on Windows):
+
+```bash
+# Install to the global Claude Code agents directory (~/.claude/agents/)
+./install-agents.sh
+
+# Install to a specific project directory (<path>/.claude/agents/)
+./install-agents.sh /path/to/your/project
+```
+
+**PowerShell** (Windows):
+
+```powershell
+# Install to the global Claude Code agents directory (~/.claude/agents/)
+.\install-agents.ps1
+
+# Install to a specific project directory (<path>\.claude\agents\)
+.\install-agents.ps1 C:\path\to\your\project
+```
+
+When no argument is given, the agents are installed globally and will be available in every Claude Code session. When a project path is given, they are installed into that project's `.claude/agents/` directory and will only be available when working in that project.
 
 ---
 
