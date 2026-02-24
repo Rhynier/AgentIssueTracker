@@ -3,3 +3,4 @@ dist/
 issues.json
 issues.json.tmp
 *.js.map
+*/settings.local.json

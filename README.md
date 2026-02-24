@@ -259,7 +259,7 @@ Mark an issue as done. This is a terminal state — closed issues cannot be reop
 
 ## Agent prompt files
 
-The `.claude/agents/` directory contains prompt files for three specialised agents designed to work with this issue tracker. See that directory for details. Quick summary:
+The `artifacts/agents/` directory contains prompt files for three specialised agents designed to work with this issue tracker. See that directory for details. Quick summary:
 
 | Agent | Purpose |
 |---|---|
