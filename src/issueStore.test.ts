@@ -119,6 +119,61 @@ describe("getIssuesByStatus", () => {
 });
 
 // ---------------------------------------------------------------------------
+// listIssues
+// ---------------------------------------------------------------------------
+describe("listIssues", () => {
+  it("returns all issues when called with no filters", async () => {
+    await store.addIssue("A", "D", "bug", "agentA");
+    await store.addIssue("B", "D", "feature", "agentA");
+    expect(store.listIssues()).toHaveLength(2);
+  });
+
+  it("filters by status only", async () => {
+    await store.addIssue("A", "D", "bug", "agentA");
+    await store.addIssue("B", "D", "feature", "agentA");
+    await store.getNextIssue("agentA"); // first issue -> in_progress
+
+    expect(store.listIssues("created")).toHaveLength(1);
+    expect(store.listIssues("in_progress")).toHaveLength(1);
+    expect(store.listIssues("closed")).toHaveLength(0);
+  });
+
+  it("filters by classification only", async () => {
+    await store.addIssue("Bug A", "D", "bug", "agentA");
+    await store.addIssue("Feature B", "D", "feature", "agentA");
+    await store.addIssue("Bug C", "D", "bug", "agentA");
+
+    expect(store.listIssues(undefined, "bug")).toHaveLength(2);
+    expect(store.listIssues(undefined, "feature")).toHaveLength(1);
+    expect(store.listIssues(undefined, "improvement")).toHaveLength(0);
+  });
+
+  it("filters by both status and classification", async () => {
+    await store.addIssue("Bug A", "D", "bug", "agentA");
+    await store.addIssue("Feature B", "D", "feature", "agentA");
+    await store.addIssue("Bug C", "D", "bug", "agentA");
+    await store.getNextIssue("agentA", "bug"); // Bug A -> in_progress
+
+    expect(store.listIssues("created", "bug")).toHaveLength(1);
+    expect(store.listIssues("in_progress", "bug")).toHaveLength(1);
+    expect(store.listIssues("created", "feature")).toHaveLength(1);
+    expect(store.listIssues("in_progress", "feature")).toHaveLength(0);
+  });
+
+  it("returns an empty array when no issues match", async () => {
+    await store.addIssue("A", "D", "bug", "agentA");
+    expect(store.listIssues("closed", "feature")).toHaveLength(0);
+  });
+
+  it("does not call saveIssues (read-only)", async () => {
+    await store.addIssue("A", "D", "bug", "agentA");
+    mockSaveIssues.mockClear();
+    store.listIssues("created", "bug");
+    expect(mockSaveIssues).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getNextIssue
 // ---------------------------------------------------------------------------
 describe("getNextIssue", () => {

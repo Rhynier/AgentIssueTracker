@@ -1,6 +1,6 @@
 # AgentIssueTracker — Agent Context
 
-This is an MCP server that lets AI agents track and coordinate work on shared issues. It exposes six MCP tools over stdio and a read-only web UI over HTTP. Both run in the same Node.js process.
+This is an MCP server that lets AI agents track and coordinate work on shared issues. It exposes seven MCP tools over stdio and a read-only web UI over HTTP. Both run in the same Node.js process.
 
 ## Commands
 
@@ -18,12 +18,12 @@ npm run test:watch   # Run tests in watch mode
 ```
 src/types.ts            Shared interfaces — Issue, HistoryEntry, Comment, IssueStore
 src/storage.ts          JSON file persistence — loadIssues() and saveIssues()
-src/issueStore.ts       Business logic — in-memory store + all six CRUD operations
+src/issueStore.ts       Business logic — in-memory store + all seven operations (incl. read-only listIssues)
 src/mcpServer.ts        MCP tool registrations — delegates to issueStore
 src/webServer.ts        Express web UI — HTML table with ?status= filter
 src/index.ts            Entry point — starts web server, then connects MCP stdio transport
 src/storage.test.ts     Tests for loadIssues() and saveIssues()
-src/issueStore.test.ts  Tests for all six CRUD operations
+src/issueStore.test.ts  Tests for all issue store operations (incl. listIssues)
 src/webServer.test.ts   Tests for HTTP routes and HTML rendering
 vitest.config.ts        Vitest configuration
 ```
@@ -50,6 +50,7 @@ Closed states (`closed`, `rejected`) are terminal — no tool transitions out of
 | Tool | Key inputs | What it does |
 |---|---|---|
 | `add_issue` | title, description, classification, agent | Creates issue with status `created` |
+| `list_issues` | status?, classification? | Lists issues matching optional filters (read-only, no state change) |
 | `get_next_issue` | agent, classification? | Takes oldest `created` issue (FIFO, optionally filtered by classification), sets it `in_progress`, returns full JSON |
 | `return_issue` | issue_id, comment, agent | Puts issue back to `created`; appends comment |
 | `complete_issue` | issue_id, comment, agent | Sets issue to `completed` (ready for review); appends comment |

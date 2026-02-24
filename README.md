@@ -22,7 +22,7 @@ An MCP (Model Context Protocol) server for tracking issues across multiple AI ag
 
 AgentIssueTracker runs as a single process with two interfaces:
 
-- **MCP server over stdio** — AI agents connect to this and use six tools to manage issues.
+- **MCP server over stdio** — AI agents connect to this and use seven tools to manage issues.
 - **HTTP server** — A browser-accessible table of all issues, filterable by status.
 
 Issues move through a lifecycle that includes a code-review stage:
@@ -87,7 +87,7 @@ Startup output appears on stderr (stdout is reserved for the MCP protocol):
 
 ## Testing
 
-Unit tests are written with [Vitest](https://vitest.dev/) and cover the storage layer, all six CRUD operations in the issue store, and the web server routes.
+Unit tests are written with [Vitest](https://vitest.dev/) and cover the storage layer, all issue store operations (including the read-only `listIssues` query), and the web server routes.
 
 ```bash
 npm test             # Run full test suite once
@@ -97,7 +97,7 @@ npm run test:watch   # Watch mode for development
 | Test file | What's covered |
 |---|---|
 | `src/storage.test.ts` | `loadIssues` / `saveIssues` — missing file, JSON round-trip, atomic `.tmp`→rename write |
-| `src/issueStore.test.ts` | `addIssue`, `getNextIssue` (FIFO + classification filter), `completeIssue`, `getNextReviewItem`, `returnIssue`, `closeIssue` — status transitions, history, comments, error cases |
+| `src/issueStore.test.ts` | `addIssue`, `listIssues` (status/classification filters), `getNextIssue` (FIFO + classification filter), `completeIssue`, `getNextReviewItem`, `returnIssue`, `closeIssue` — status transitions, history, comments, error cases |
 | `src/webServer.test.ts` | `GET /`, `GET /?status=`, `GET /health` — HTML content, status filter, invalid filter fallback, XSS escaping |
 
 ---
@@ -120,7 +120,7 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json` (create it if it does not exi
 }
 ```
 
-Restart Claude Desktop. The six issue-tracker tools will appear in the tools list in any new conversation.
+Restart Claude Desktop. The seven issue-tracker tools will appear in the tools list in any new conversation.
 
 **Development variant** (no build step required):
 
@@ -228,6 +228,17 @@ Create a new issue. Status is set to `created`.
 | `classification` | `bug` \| `improvement` \| `feature` | Issue category |
 | `agent` | string | Your agent's name (recorded in history) |
 
+### `list_issues`
+
+List issues matching optional filters. This is a read-only query — it does not claim or modify any issues. Useful for checking queue sizes before deciding what to do next.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `status` | `created` \| `in_progress` \| `completed` \| `in_review` \| `closed` \| `rejected` (optional) | Only include issues with this status |
+| `classification` | `bug` \| `improvement` \| `feature` (optional) | Only include issues of this type |
+
+Returns a JSON object with `count` (number of matches) and `issues` (array of summaries with `id`, `title`, `classification`, `status`, `createdAt`).
+
 ### `get_next_issue`
 
 Claim the oldest available issue (FIFO). Status changes to `in_progress`. Returns the full issue as JSON, or a message if no issues are available. When `classification` is provided, only issues of that type are considered — this lets developer agents prioritize bugs over improvements over features.
@@ -280,16 +291,20 @@ Mark an issue as done. This is a terminal state — closed issues cannot be reop
 
 ## Agent prompt files
 
-The `artifacts/agents/` directory contains prompt files for three specialised agents designed to work with this issue tracker. See that directory for details. Quick summary:
+The `artifacts/agents/` directory contains prompt files for four agents designed to work with this issue tracker. See that directory for details. Quick summary:
 
 | Agent | Purpose |
 |---|---|
+| `team-lead` | Monitors all queues and dispatches subagents in priority order — reviews first, then bugs, improvements, features |
 | `developer` | Picks up issues (bugs first, then improvements, then features), implements them, and marks them completed for review |
 | `code-reviewer` | Picks up completed issues for review, then closes or rejects them |
 | `bug-fixer` | Picks up the next bug issue, investigates and fixes it, closes or returns it |
 
+The **team-lead** is the coordination layer. It uses `list_issues` to check queue sizes without claiming anything, then spawns the appropriate worker agent (developer, bug-fixer, or code-reviewer) via the Task tool. Run it to process an entire backlog hands-free.
+
 Invoke them explicitly in Claude Code with `/agents` or by asking Claude to use a specific agent, for example:
 
+> "Use the team-lead agent to process the issue backlog."
 > "Use the code-reviewer agent to review my staged changes."
 > "Use the bug-fixer agent to work on the next bug."
 

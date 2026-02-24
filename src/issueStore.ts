@@ -17,6 +17,17 @@ export function getIssuesByStatus(status?: IssueStatus): Issue[] {
   return store.issues.filter((i) => i.status === status);
 }
 
+export function listIssues(
+  status?: IssueStatus,
+  classification?: IssueClassification
+): Issue[] {
+  return store.issues.filter(
+    (i) =>
+      (status === undefined || i.status === status) &&
+      (classification === undefined || i.classification === classification)
+  );
+}
+
 /**
  * Tool: add_issue
  * Creates a new issue with status "created".

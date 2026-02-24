@@ -2,7 +2,7 @@
 
 AgentIssueTracker is a single Node.js process that exposes two interfaces simultaneously:
 
-- An **MCP server** over stdio, giving AI agents six tools to manage issues.
+- An **MCP server** over stdio, giving AI agents seven tools to manage issues.
 - An **HTTP server** (Express) on a configurable port, giving humans a read-only web UI.
 
 Both interfaces share the same in-memory store, which is persisted to a single JSON file.
@@ -21,7 +21,7 @@ Both interfaces share the same in-memory store, which is persisted to a single J
      ┌───────────▼──────────┐ ┌──────────▼──────────┐
      │     mcpServer.ts     │ │    webServer.ts      │
      │  McpServer instance  │ │  Express app         │
-     │  6 tool definitions  │ │  GET /  (HTML table) │
+     │  7 tool definitions  │ │  GET /  (HTML table) │
      │  Zod input schemas   │ │  GET /health  (JSON) │
      └───────────┬──────────┘ └──────────┬───────────┘
                  │                       │
@@ -32,6 +32,7 @@ Both interfaces share the same in-memory store, which is persisted to a single J
                  │  Module-level store   │
                  │  All business logic   │
                  │  addIssue             │
+                 │  listIssues (read)    │
                  │  getNextIssue         │
                  │  returnIssue          │
                  │  completeIssue        │
@@ -120,7 +121,7 @@ Transitions are enforced in `issueStore.ts`:
 
 ## MCP Tools
 
-The server is registered as `agent-issue-tracker` version `1.0.0`. All six tools follow the same pattern: validate inputs with Zod, call the corresponding `issueStore` function, catch errors and return them as `{ isError: true }` so the calling agent receives a readable message rather than a protocol fault.
+The server is registered as `agent-issue-tracker` version `1.0.0`. All seven tools follow the same pattern: validate inputs with Zod, call the corresponding `issueStore` function, catch errors and return them as `{ isError: true }` so the calling agent receives a readable message rather than a protocol fault.
 
 ### `add_issue`
 
@@ -132,6 +133,15 @@ The server is registered as `agent-issue-tracker` version `1.0.0`. All six tools
 | `agent` | string | Recorded in history |
 
 Returns: confirmation text with the new issue ID and timestamp.
+
+### `list_issues`
+
+| Parameter | Type | Notes |
+|---|---|---|
+| `status` | `"created" \| "in_progress" \| "completed" \| "in_review" \| "closed" \| "rejected"` (optional) | Filter by lifecycle state |
+| `classification` | `"bug" \| "improvement" \| "feature"` (optional) | Filter by issue type |
+
+Read-only query. Does not claim or modify any issues — no history entry is appended. Returns a JSON object with `count` (number of matches) and `issues` (array of summaries containing `id`, `title`, `classification`, `status`, `createdAt`). Both parameters are optional; omitting both returns all issues. The team-lead agent uses this to check queue sizes before deciding which subagent to spawn.
 
 ### `get_next_issue`
 
@@ -213,6 +223,38 @@ The HTML is rendered as a template literal inside `webServer.ts`; there are no s
 ## stdio and Logging
 
 The MCP protocol uses the process's stdout as its JSON-RPC transport. Any bytes written to stdout that are not valid MCP protocol frames will break the connection. For this reason, all diagnostic output — including Express startup messages — is written to **stderr** via `console.error`. Nothing in the codebase calls `console.log`.
+
+---
+
+## Agent Architecture
+
+The `artifacts/agents/` directory contains prompt files for four agents. Each file uses YAML front-matter (`name`, `description`, `tools`, `mcp`) followed by markdown instructions.
+
+```
+                        ┌──────────────┐
+                        │  team-lead   │
+                        │  (dispatcher)│
+                        └──────┬───────┘
+               list_issues     │     spawns via Task tool
+          ┌────────────────────┼─────────────────────┐
+          │                    │                      │
+          ▼                    ▼                      ▼
+  ┌───────────────┐  ┌────────────────┐  ┌────────────────────┐
+  │  code-reviewer │  │   bug-fixer    │  │     developer      │
+  │  (reviews)     │  │   (bugs only)  │  │ (improvements +    │
+  │                │  │                │  │  features)          │
+  └───────────────┘  └────────────────┘  └────────────────────┘
+```
+
+**team-lead** — Coordination agent. Runs a continuous loop checking queues via `list_issues` (read-only) in priority order: completed issues (→ code-reviewer), bugs (→ bug-fixer), improvements (→ developer), features (→ developer). Spawns one subagent at a time using the Task tool, passing the full content of the worker's prompt file. Never claims issues itself.
+
+**code-reviewer** — Picks up completed issues via `get_next_review_item`. Reviews changes in a git worktree, runs build and tests, files new issues for findings via `add_issue`, then closes, rejects, or returns the original issue. Merges approved branches to main.
+
+**bug-fixer** — Claims bugs via `get_next_issue(classification: "bug")`. Investigates and fixes in a git worktree. Includes a retry guard that rejects issues returned 3+ times.
+
+**developer** — Claims issues in priority order (bugs → improvements → features) via `get_next_issue`. Implements in a git worktree, commits, and calls `complete_issue` so work enters the review queue. Same retry guard as bug-fixer.
+
+All agents coordinate exclusively through the issue tracker — no direct inter-agent communication. The issue queue acts as a work-stealing task scheduler.
 
 ---
 

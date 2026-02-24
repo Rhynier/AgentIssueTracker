@@ -7,6 +7,7 @@ import {
   completeIssue,
   getNextReviewItem,
   closeIssue,
+  listIssues,
 } from "./issueStore.js";
 
 export function createMcpServer(): McpServer {
@@ -34,6 +35,46 @@ export function createMcpServer(): McpServer {
             {
               type: "text",
               text: `Issue created successfully.\nID: ${issue.id}\nTitle: ${issue.title}\nStatus: ${issue.status}\nCreated at: ${issue.createdAt}`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text", text: `Error: ${(err as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "list_issues",
+    "List issues filtered by status and/or classification. Read-only — does not claim or modify any issues.",
+    {
+      status: z
+        .enum(["created", "in_progress", "completed", "in_review", "closed", "rejected"])
+        .optional()
+        .describe("Filter by issue status. Omit to include all statuses."),
+      classification: z
+        .enum(["bug", "improvement", "feature"])
+        .optional()
+        .describe("Filter by issue classification. Omit to include all types."),
+    },
+    async ({ status, classification }) => {
+      try {
+        const issues = listIssues(status, classification);
+        const summary = issues.map((i) => ({
+          id: i.id,
+          title: i.title,
+          classification: i.classification,
+          status: i.status,
+          createdAt: i.createdAt,
+        }));
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ count: issues.length, issues: summary }, null, 2),
             },
           ],
         };
