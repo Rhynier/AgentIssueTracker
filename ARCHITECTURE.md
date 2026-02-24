@@ -94,14 +94,14 @@ Every operation that mutates an issue appends one entry: `{ timestamp, agent, ac
         close_issue
        ┌──────┴──────┐
        ▼             ▼
-  "completed"   "rejected"
+  "closed"      "rejected"
 ```
 
 Transitions are enforced in `issueStore.ts`:
 
 - `get_next_issue` only considers issues with `status === "created"`.
-- `return_issue` rejects issues already in `"completed"` or `"rejected"`.
-- `close_issue` rejects issues already in `"completed"` or `"rejected"`.
+- `return_issue` rejects issues already in `"closed"` or `"rejected"`.
+- `close_issue` rejects issues already in `"closed"` or `"rejected"`.
 - There is no transition from a closed state back to open; closed is terminal.
 
 ---
@@ -144,7 +144,7 @@ Returns the issue to `"created"` status. Intended for cases where an agent canno
 | Parameter | Type | Notes |
 |---|---|---|
 | `issue_id` | UUID string | Must exist and not already be closed |
-| `resolution` | `"completed" \| "rejected"` | |
+| `resolution` | `"closed" \| "rejected"` | |
 | `comment` | string | Appended to `comments[]` |
 | `agent` | string | Recorded in history |
 
@@ -170,7 +170,7 @@ Issues are persisted to a single JSON file with shape `{ "issues": [...] }`.
 
 A single Express application serves two routes:
 
-- `GET /` — renders an HTML page listing all issues. Accepts an optional `?status=` query parameter (`created`, `in_progress`, `completed`, `rejected`) to filter the table. The page includes a `<meta http-equiv="refresh" content="30">` tag for automatic polling.
+- `GET /` — renders an HTML page listing all issues. Accepts an optional `?status=` query parameter (`created`, `in_progress`, `closed`, `rejected`) to filter the table. The page includes a `<meta http-equiv="refresh" content="30">` tag for automatic polling.
 - `GET /health` — returns `{ "status": "ok", "issueCount": N }` for monitoring.
 
 The HTML is rendered as a template literal inside `webServer.ts`; there are no static asset files or external templating dependencies. All user-supplied strings are HTML-escaped before insertion.

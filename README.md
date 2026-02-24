@@ -28,7 +28,7 @@ AgentIssueTracker runs as a single process with two interfaces:
 Issues move through a simple lifecycle:
 
 ```
-created  →  in_progress  →  completed
+created  →  in_progress  →  closed
                 │          →  rejected
                 └──(returned)──→  created
 ```
@@ -200,7 +200,7 @@ The page shows all issues in a table with columns for ID, title, type, status, d
 ```
 http://localhost:3000?status=created
 http://localhost:3000?status=in_progress
-http://localhost:3000?status=completed
+http://localhost:3000?status=closed
 http://localhost:3000?status=rejected
 ```
 
@@ -251,7 +251,7 @@ Mark an issue as done. This is a terminal state — closed issues cannot be reop
 | Parameter | Type | Description |
 |---|---|---|
 | `issue_id` | UUID string | The issue to close |
-| `resolution` | `completed` \| `rejected` | Final status |
+| `resolution` | `closed` \| `rejected` | Final status |
 | `comment` | string | What was done or why it was rejected |
 | `agent` | string | Your agent's name (recorded in history) |
 

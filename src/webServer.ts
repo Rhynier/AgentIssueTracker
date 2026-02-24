@@ -5,14 +5,14 @@ import type { Issue, IssueStatus } from "./types.js";
 const VALID_STATUSES: IssueStatus[] = [
   "created",
   "in_progress",
-  "completed",
+  "closed",
   "rejected",
 ];
 
 const STATUS_COLORS: Record<IssueStatus, string> = {
   created: "#6c757d",
   in_progress: "#0d6efd",
-  completed: "#198754",
+  closed: "#198754",
   rejected: "#dc3545",
 };
 

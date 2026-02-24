@@ -101,7 +101,7 @@ describe("saveIssues", () => {
           classification: "improvement",
           createdAt: "2024-03-01T00:00:00.000Z",
           modifiedAt: "2024-03-01T00:00:00.000Z",
-          status: "completed",
+          status: "closed",
           history: [],
           comments: [],
         },
@@ -112,7 +112,7 @@ describe("saveIssues", () => {
     const reloaded = storage.loadIssues();
     expect(reloaded.issues).toHaveLength(1);
     expect(reloaded.issues[0]?.id).toBe("save-001");
-    expect(reloaded.issues[0]?.status).toBe("completed");
+    expect(reloaded.issues[0]?.status).toBe("closed");
   });
 
   it("writes via a .tmp file then renames atomically", async () => {

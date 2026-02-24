@@ -139,12 +139,12 @@ describe("GET /?status=", () => {
   it("shows the active filter name in the subtitle", async () => {
     mockGetIssuesByStatus.mockReturnValue([]);
     const app = webServer.createWebServer();
-    const res = await supertest(app).get("/?status=completed");
-    expect(res.text).toContain("completed");
+    const res = await supertest(app).get("/?status=closed");
+    expect(res.text).toContain("closed");
   });
 
   it("accepts all four valid statuses", async () => {
-    const statuses = ["created", "in_progress", "completed", "rejected"] as const;
+    const statuses = ["created", "in_progress", "closed", "rejected"] as const;
     const app = webServer.createWebServer();
     for (const status of statuses) {
       mockGetIssuesByStatus.mockReturnValue([]);

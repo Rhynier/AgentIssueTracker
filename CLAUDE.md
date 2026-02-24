@@ -37,13 +37,13 @@ dist/              Compiled JavaScript, produced by npm run build
 ## Issue Status Lifecycle
 
 ```
-"created"  →  "in_progress"  →  "completed"
+"created"  →  "in_progress"  →  "closed"
                     │          →  "rejected"
                     │
                     └──(return_issue)──→  "created"
 ```
 
-Closed states (`completed`, `rejected`) are terminal — no tool transitions out of them.
+Closed states (`closed`, `rejected`) are terminal — no tool transitions out of them.
 
 ## MCP Tools
 
@@ -52,7 +52,7 @@ Closed states (`completed`, `rejected`) are terminal — no tool transitions out
 | `add_issue` | title, description, classification, agent | Creates issue with status `created` |
 | `get_next_issue` | agent | Takes oldest `created` issue (FIFO), sets it `in_progress`, returns full JSON |
 | `return_issue` | issue_id, comment, agent | Puts issue back to `created`; appends comment |
-| `close_issue` | issue_id, resolution, comment, agent | Sets `completed` or `rejected`; appends comment |
+| `close_issue` | issue_id, resolution, comment, agent | Sets `closed` or `rejected`; appends comment |
 
 All tools append to the issue's `history[]` array (timestamp + agent + action description).
 

@@ -100,7 +100,7 @@ export async function returnIssue(
     throw new Error(`Issue not found: ${issueId}`);
   }
   const issue = store.issues[index]!;
-  if (issue.status === "completed" || issue.status === "rejected") {
+  if (issue.status === "closed" || issue.status === "rejected") {
     throw new Error(
       `Cannot return issue ${issueId}: it is already closed (${issue.status})`
     );
@@ -128,13 +128,13 @@ export async function returnIssue(
 
 /**
  * Tool: close_issue
- * Closes the issue with "completed" or "rejected".
+ * Closes the issue with "closed" or "rejected".
  * Adds a comment and a history entry.
  * Throws if the issue is not found or already closed.
  */
 export async function closeIssue(
   issueId: string,
-  resolution: "completed" | "rejected",
+  resolution: "closed" | "rejected",
   comment: string,
   agent: string
 ): Promise<Issue> {
@@ -143,7 +143,7 @@ export async function closeIssue(
     throw new Error(`Issue not found: ${issueId}`);
   }
   const issue = store.issues[index]!;
-  if (issue.status === "completed" || issue.status === "rejected") {
+  if (issue.status === "closed" || issue.status === "rejected") {
     throw new Error(
       `Issue ${issueId} is already closed (${issue.status})`
     );

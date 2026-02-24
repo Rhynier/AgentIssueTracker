@@ -114,7 +114,7 @@ describe("getIssuesByStatus", () => {
 
   it("returns an empty array when no issues match the status", async () => {
     await store.addIssue("A", "D", "bug", "agentA");
-    expect(store.getIssuesByStatus("completed")).toHaveLength(0);
+    expect(store.getIssuesByStatus("closed")).toHaveLength(0);
   });
 });
 
@@ -175,10 +175,10 @@ describe("returnIssue", () => {
     ).rejects.toThrow("not found");
   });
 
-  it("throws when the issue is already 'completed'", async () => {
+  it("throws when the issue is already 'closed'", async () => {
     const issue = await store.addIssue("A", "D", "bug", "agentA");
     await store.getNextIssue("agentA"); // → in_progress
-    await store.closeIssue(issue.id, "completed", "done", "agentA");
+    await store.closeIssue(issue.id, "closed", "done", "agentA");
 
     await expect(
       store.returnIssue(issue.id, "oops", "agentA"),
@@ -235,17 +235,17 @@ describe("returnIssue", () => {
 describe("closeIssue", () => {
   it("throws when the issue ID is not found", async () => {
     await expect(
-      store.closeIssue("00000000-0000-4000-8000-000000000000", "completed", "done", "agentA"),
+      store.closeIssue("00000000-0000-4000-8000-000000000000", "closed", "done", "agentA"),
     ).rejects.toThrow("not found");
   });
 
-  it("throws when the issue is already 'completed'", async () => {
+  it("throws when the issue is already 'closed'", async () => {
     const issue = await store.addIssue("A", "D", "bug", "agentA");
     await store.getNextIssue("agentA");
-    await store.closeIssue(issue.id, "completed", "done", "agentA");
+    await store.closeIssue(issue.id, "closed", "done", "agentA");
 
     await expect(
-      store.closeIssue(issue.id, "completed", "again", "agentA"),
+      store.closeIssue(issue.id, "closed", "again", "agentA"),
     ).rejects.toThrow("already closed");
   });
 
@@ -259,11 +259,11 @@ describe("closeIssue", () => {
     ).rejects.toThrow("already closed");
   });
 
-  it("sets status to 'completed' when resolution is 'completed'", async () => {
+  it("sets status to 'closed' when resolution is 'closed'", async () => {
     const issue = await store.addIssue("A", "D", "bug", "agentA");
     await store.getNextIssue("agentA");
-    const closed = await store.closeIssue(issue.id, "completed", "done", "agentA");
-    expect(closed.status).toBe("completed");
+    const closed = await store.closeIssue(issue.id, "closed", "done", "agentA");
+    expect(closed.status).toBe("closed");
   });
 
   it("sets status to 'rejected' when resolution is 'rejected'", async () => {
@@ -276,7 +276,7 @@ describe("closeIssue", () => {
   it("appends the comment to the issue", async () => {
     const issue = await store.addIssue("A", "D", "bug", "agentA");
     await store.getNextIssue("agentA");
-    const closed = await store.closeIssue(issue.id, "completed", "all done", "agentB");
+    const closed = await store.closeIssue(issue.id, "closed", "all done", "agentB");
     expect(closed.comments).toHaveLength(1);
     expect(closed.comments[0]?.text).toBe("all done");
     expect(closed.comments[0]?.agent).toBe("agentB");
@@ -285,17 +285,17 @@ describe("closeIssue", () => {
   it("appends a history entry for the closure", async () => {
     const issue = await store.addIssue("A", "D", "bug", "agentA");
     await store.getNextIssue("agentA");
-    const closed = await store.closeIssue(issue.id, "completed", "done", "agentB");
+    const closed = await store.closeIssue(issue.id, "closed", "done", "agentB");
     const lastEntry = closed.history.at(-1);
     expect(lastEntry?.agent).toBe("agentB");
-    expect(lastEntry?.action).toContain("completed");
+    expect(lastEntry?.action).toContain("closed");
   });
 
   it("calls saveIssues after closing", async () => {
     const issue = await store.addIssue("A", "D", "bug", "agentA");
     await store.getNextIssue("agentA");
     mockSaveIssues.mockClear();
-    await store.closeIssue(issue.id, "completed", "done", "agentA");
+    await store.closeIssue(issue.id, "closed", "done", "agentA");
     expect(mockSaveIssues).toHaveBeenCalledTimes(1);
   });
 

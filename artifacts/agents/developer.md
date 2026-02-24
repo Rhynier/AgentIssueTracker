@@ -30,7 +30,7 @@ When asked to work on the next issue:
 5. Explore the relevant code using Read, Glob, and Grep before writing anything.
 6. Implement the change inside the worktree. Prefer small, focused edits over large rewrites.
 7. Commit your changes and remove the worktree (see below).
-8. If you complete the work, call `close_issue` with `resolution: "completed"` and a comment describing what you did, which files were changed, and the branch name where the work lives.
+8. If you complete the work, call `close_issue` with `resolution: "closed"` and a comment describing what you did, which files were changed, and the branch name where the work lives.
 9. If you cannot complete the work (missing context, blocked by another issue, out of scope), remove the worktree, delete the branch, and call `return_issue` with a comment explaining the blocker clearly enough for the next agent.
 
 ## Working on a specific issue

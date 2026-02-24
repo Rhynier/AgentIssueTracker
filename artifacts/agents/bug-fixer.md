@@ -83,7 +83,7 @@ git worktree remove ".worktrees/${BRANCH}"
 
 ### 8. Close or return the issue
 
-**If fixed:** call `close_issue` with `resolution: "completed"`. The comment must include:
+**If fixed:** call `close_issue` with `resolution: "closed"`. The comment must include:
 - Root cause (one sentence)
 - What you changed and in which files
 - How you verified the fix

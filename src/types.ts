@@ -3,7 +3,7 @@ export type IssueClassification = "bug" | "improvement" | "feature";
 export type IssueStatus =
   | "created"
   | "in_progress"
-  | "completed"
+  | "closed"
   | "rejected";
 
 export interface HistoryEntry {

@@ -114,11 +114,11 @@ export function createMcpServer(): McpServer {
 
   server.tool(
     "close_issue",
-    "Close an issue as completed or rejected with a final comment",
+    "Close an issue as closed or rejected with a final comment",
     {
       issue_id: z.string().uuid().describe("UUID of the issue to close"),
       resolution: z
-        .enum(["completed", "rejected"])
+        .enum(["closed", "rejected"])
         .describe("Final resolution status"),
       comment: z
         .string()
