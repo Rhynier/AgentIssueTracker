@@ -9,6 +9,8 @@ npm run dev          # Run directly with tsx (no build step, recommended for dev
 npm run dev:watch    # Same, with auto-restart on file changes
 npm run build        # Compile TypeScript to dist/
 npm start            # Run compiled output (requires build first)
+npm run bundle       # Bundle everything into a single dist/agent-issue-tracker.cjs
+npm run start:bundle # Run the single-file bundle
 npm test             # Run unit tests (vitest, single pass)
 npm run test:watch   # Run tests in watch mode
 ```
@@ -28,10 +30,14 @@ src/webServer.test.ts   Tests for HTTP routes and HTML rendering
 vitest.config.ts        Vitest configuration
 ```
 
+esbuild.config.mjs      esbuild bundler configuration for single-file packaging
+```
+
 Runtime artefacts (not in source control):
 ```
-issues.json        Live data store, auto-created on first write
-dist/              Compiled JavaScript, produced by npm run build
+issues.json                    Live data store, auto-created on first write
+dist/                          Compiled JavaScript, produced by npm run build
+dist/agent-issue-tracker.cjs   Single-file bundle, produced by npm run bundle
 ```
 
 ## Issue Status Lifecycle
@@ -112,6 +118,24 @@ For development without a build step:
 ```
 
 Restart Claude Desktop after editing the config.
+
+### Using the single-file bundle
+
+`npm run bundle` produces `dist/agent-issue-tracker.cjs` — a single file (~1 MB) containing all source code and dependencies. It can be copied anywhere and run with just `node`, no `npm install` or `node_modules` required.
+
+```json
+{
+  "mcpServers": {
+    "issue-tracker": {
+      "command": "node",
+      "args": ["C:\\path\\to\\agent-issue-tracker.cjs"],
+      "env": {
+        "PORT": "3000"
+      }
+    }
+  }
+}
+```
 
 ## Extending This Server
 

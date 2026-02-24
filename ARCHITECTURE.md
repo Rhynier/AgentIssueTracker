@@ -270,4 +270,6 @@ All agents coordinate exclusively through the issue tracker — no direct inter-
 
 **Errors surfaced as MCP tool results.** Rather than letting exceptions propagate and potentially crashing the stdio transport, every tool handler catches errors and returns them as `{ isError: true, content: [{ type: "text", text: "Error: ..." }] }`. The calling agent sees a legible error message and can decide how to proceed.
 
+**Single-file bundle via esbuild.** `npm run bundle` collapses all source code and runtime dependencies into a single `dist/agent-issue-tracker.cjs` (~1 MB). The bundle uses CJS format to avoid ESM edge cases and can be run with `node agent-issue-tracker.cjs` on any machine with Node.js 20+ — no `node_modules` required. The `tsc` build is kept for development (typechecking, declarations, source maps); the esbuild bundle is for distribution.
+
 **No authentication.** Agents supply their own name in the `agent` field. The server records whatever string is provided. This is intentional for a collaborative prototype — enforcement would require a shared secret or token mechanism that adds complexity without meaningful benefit in a trusted multi-agent environment.

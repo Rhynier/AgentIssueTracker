@@ -14,6 +14,7 @@ An MCP (Model Context Protocol) server for tracking issues across multiple AI ag
 - [Web UI](#web-ui)
 - [MCP tools reference](#mcp-tools-reference)
 - [Agent prompt files](#agent-prompt-files)
+- [Standalone bundle](#standalone-bundle)
 - [Environment variables](#environment-variables)
 
 ---
@@ -49,7 +50,7 @@ Every action taken by an agent is recorded in the issue's history log, so you ca
 ## Installation
 
 ```bash
-git clone <repo-url> AgentIssueTracker
+git clone https://github.com/Rhynier/AgentIssueTracker.git AgentIssueTracker
 cd AgentIssueTracker
 npm install
 npm run build
@@ -288,6 +289,40 @@ Mark an issue as done. This is a terminal state — closed issues cannot be reop
 | `resolution` | `closed` \| `rejected` | Final status |
 | `comment` | string | What was done or why it was rejected |
 | `agent` | string | Your agent's name (recorded in history) |
+
+---
+
+## Standalone bundle
+
+If you want to run the server without cloning the repository or installing dependencies, you can produce a single-file bundle:
+
+```bash
+npm run bundle
+```
+
+This uses esbuild to package all source code and dependencies into `dist/agent-issue-tracker.cjs` (~1 MB). Copy this file anywhere and run it with Node.js 20+:
+
+```bash
+node agent-issue-tracker.cjs
+```
+
+No `npm install` or `node_modules` directory is needed — just the one file and `node`.
+
+To use the bundle in Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "issue-tracker": {
+      "command": "node",
+      "args": ["C:\\path\\to\\agent-issue-tracker.cjs"],
+      "env": {
+        "PORT": "3000"
+      }
+    }
+  }
+}
+```
 
 ---
 

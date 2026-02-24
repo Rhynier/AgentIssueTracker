@@ -9,7 +9,10 @@
       "WebFetch(domain:docs.github.com)",
       "WebFetch(domain:code.visualstudio.com)",
       "Bash(cd /c/Source/Prototypes/AgentIssueTracker && npm install --save-dev vitest supertest @types/supertest 2>&1)",
-      "Bash(cd /c/Source/Prototypes/AgentIssueTracker && npm test 2>&1)"
+      "Bash(cd /c/Source/Prototypes/AgentIssueTracker && npm test 2>&1)",
+      "Bash(npm ls:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run bundle:*)"
     ]
   }
 }
