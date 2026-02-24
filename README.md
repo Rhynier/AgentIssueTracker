@@ -22,15 +22,15 @@ An MCP (Model Context Protocol) server for tracking issues across multiple AI ag
 
 AgentIssueTracker runs as a single process with two interfaces:
 
-- **MCP server over stdio** — AI agents connect to this and use four tools to manage issues.
+- **MCP server over stdio** — AI agents connect to this and use six tools to manage issues.
 - **HTTP server** — A browser-accessible table of all issues, filterable by status.
 
-Issues move through a simple lifecycle:
+Issues move through a lifecycle that includes a code-review stage:
 
 ```
-created  →  in_progress  →  closed
-                │          →  rejected
-                └──(returned)──→  created
+created  →  in_progress  →  completed  →  in_review  →  closed
+                │                │              │      →  rejected
+                └────────────────┴──────────────┴──(returned)──→  created
 ```
 
 Every action taken by an agent is recorded in the issue's history log, so you can see exactly which agent did what and when.
@@ -87,7 +87,7 @@ Startup output appears on stderr (stdout is reserved for the MCP protocol):
 
 ## Testing
 
-Unit tests are written with [Vitest](https://vitest.dev/) and cover the storage layer, all four CRUD operations in the issue store, and the web server routes.
+Unit tests are written with [Vitest](https://vitest.dev/) and cover the storage layer, all six CRUD operations in the issue store, and the web server routes.
 
 ```bash
 npm test             # Run full test suite once
@@ -97,7 +97,7 @@ npm run test:watch   # Watch mode for development
 | Test file | What's covered |
 |---|---|
 | `src/storage.test.ts` | `loadIssues` / `saveIssues` — missing file, JSON round-trip, atomic `.tmp`→rename write |
-| `src/issueStore.test.ts` | `addIssue`, `getNextIssue` (FIFO), `returnIssue`, `closeIssue` — status transitions, history, comments, error cases |
+| `src/issueStore.test.ts` | `addIssue`, `getNextIssue` (FIFO + classification filter), `completeIssue`, `getNextReviewItem`, `returnIssue`, `closeIssue` — status transitions, history, comments, error cases |
 | `src/webServer.test.ts` | `GET /`, `GET /?status=`, `GET /health` — HTML content, status filter, invalid filter fallback, XSS escaping |
 
 ---
@@ -120,7 +120,7 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json` (create it if it does not exi
 }
 ```
 
-Restart Claude Desktop. The four issue-tracker tools will appear in the tools list in any new conversation.
+Restart Claude Desktop. The six issue-tracker tools will appear in the tools list in any new conversation.
 
 **Development variant** (no build step required):
 
@@ -200,6 +200,8 @@ The page shows all issues in a table with columns for ID, title, type, status, d
 ```
 http://localhost:3000?status=created
 http://localhost:3000?status=in_progress
+http://localhost:3000?status=completed
+http://localhost:3000?status=in_review
 http://localhost:3000?status=closed
 http://localhost:3000?status=rejected
 ```
@@ -228,11 +230,12 @@ Create a new issue. Status is set to `created`.
 
 ### `get_next_issue`
 
-Claim the oldest available issue (FIFO). Status changes to `in_progress`. Returns the full issue as JSON, or a message if no issues are available.
+Claim the oldest available issue (FIFO). Status changes to `in_progress`. Returns the full issue as JSON, or a message if no issues are available. When `classification` is provided, only issues of that type are considered — this lets developer agents prioritize bugs over improvements over features.
 
 | Parameter | Type | Description |
 |---|---|---|
 | `agent` | string | Your agent's name (recorded in history) |
+| `classification` | `bug` \| `improvement` \| `feature` (optional) | Only consider issues of this type |
 
 ### `return_issue`
 
@@ -244,9 +247,27 @@ Return an issue you cannot complete. Status reverts to `created` so another agen
 | `comment` | string | Why you are returning it |
 | `agent` | string | Your agent's name (recorded in history) |
 
+### `complete_issue`
+
+Mark an issue as completed and ready for code review. Status changes to `completed`. The developer agent calls this after finishing work, instead of closing the issue directly.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `issue_id` | UUID string | The issue to complete |
+| `comment` | string | Summary of the work done |
+| `agent` | string | Your agent's name (recorded in history) |
+
+### `get_next_review_item`
+
+Claim the oldest completed issue for review (FIFO). Status changes to `in_review`. Returns the full issue as JSON, or a message if no issues are ready for review.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `agent` | string | Your agent's name (recorded in history) |
+
 ### `close_issue`
 
-Mark an issue as done. This is a terminal state — closed issues cannot be reopened via the API.
+Mark an issue as done. This is a terminal state — closed issues cannot be reopened via the API. In the review workflow, the code-reviewer agent calls this after reviewing an `in_review` issue.
 
 | Parameter | Type | Description |
 |---|---|---|
@@ -263,8 +284,8 @@ The `artifacts/agents/` directory contains prompt files for three specialised ag
 
 | Agent | Purpose |
 |---|---|
-| `developer` | General development work — files issues for discovered problems, picks up feature issues to implement |
-| `code-reviewer` | Reviews code changes and files bugs or improvement issues for findings |
+| `developer` | Picks up issues (bugs first, then improvements, then features), implements them, and marks them completed for review |
+| `code-reviewer` | Picks up completed issues for review, then closes or rejects them |
 | `bug-fixer` | Picks up the next bug issue, investigates and fixes it, closes or returns it |
 
 Invoke them explicitly in Claude Code with `/agents` or by asking Claude to use a specific agent, for example:

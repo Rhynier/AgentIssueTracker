@@ -1,6 +1,6 @@
 # AgentIssueTracker — Agent Context
 
-This is an MCP server that lets AI agents track and coordinate work on shared issues. It exposes four MCP tools over stdio and a read-only web UI over HTTP. Both run in the same Node.js process.
+This is an MCP server that lets AI agents track and coordinate work on shared issues. It exposes six MCP tools over stdio and a read-only web UI over HTTP. Both run in the same Node.js process.
 
 ## Commands
 
@@ -18,12 +18,12 @@ npm run test:watch   # Run tests in watch mode
 ```
 src/types.ts            Shared interfaces — Issue, HistoryEntry, Comment, IssueStore
 src/storage.ts          JSON file persistence — loadIssues() and saveIssues()
-src/issueStore.ts       Business logic — in-memory store + all four CRUD operations
+src/issueStore.ts       Business logic — in-memory store + all six CRUD operations
 src/mcpServer.ts        MCP tool registrations — delegates to issueStore
 src/webServer.ts        Express web UI — HTML table with ?status= filter
 src/index.ts            Entry point — starts web server, then connects MCP stdio transport
 src/storage.test.ts     Tests for loadIssues() and saveIssues()
-src/issueStore.test.ts  Tests for all four CRUD operations
+src/issueStore.test.ts  Tests for all six CRUD operations
 src/webServer.test.ts   Tests for HTTP routes and HTML rendering
 vitest.config.ts        Vitest configuration
 ```
@@ -37,10 +37,10 @@ dist/              Compiled JavaScript, produced by npm run build
 ## Issue Status Lifecycle
 
 ```
-"created"  →  "in_progress"  →  "closed"
-                    │          →  "rejected"
-                    │
-                    └──(return_issue)──→  "created"
+"created"  →  "in_progress"  →  "completed"  →  "in_review"  →  "closed"
+                    │                │                │          →  "rejected"
+                    │                │                │
+                    └────────────────┴────────────────┴──(return_issue)──→  "created"
 ```
 
 Closed states (`closed`, `rejected`) are terminal — no tool transitions out of them.
@@ -50,8 +50,10 @@ Closed states (`closed`, `rejected`) are terminal — no tool transitions out of
 | Tool | Key inputs | What it does |
 |---|---|---|
 | `add_issue` | title, description, classification, agent | Creates issue with status `created` |
-| `get_next_issue` | agent | Takes oldest `created` issue (FIFO), sets it `in_progress`, returns full JSON |
+| `get_next_issue` | agent, classification? | Takes oldest `created` issue (FIFO, optionally filtered by classification), sets it `in_progress`, returns full JSON |
 | `return_issue` | issue_id, comment, agent | Puts issue back to `created`; appends comment |
+| `complete_issue` | issue_id, comment, agent | Sets issue to `completed` (ready for review); appends comment |
+| `get_next_review_item` | agent | Takes oldest `completed` issue (FIFO), sets it `in_review`, returns full JSON |
 | `close_issue` | issue_id, resolution, comment, agent | Sets `closed` or `rejected`; appends comment |
 
 All tools append to the issue's `history[]` array (timestamp + agent + action description).

@@ -5,6 +5,8 @@ import type { Issue, IssueStatus } from "./types.js";
 const VALID_STATUSES: IssueStatus[] = [
   "created",
   "in_progress",
+  "completed",
+  "in_review",
   "closed",
   "rejected",
 ];
@@ -12,6 +14,8 @@ const VALID_STATUSES: IssueStatus[] = [
 const STATUS_COLORS: Record<IssueStatus, string> = {
   created: "#6c757d",
   in_progress: "#0d6efd",
+  completed: "#6f42c1",
+  in_review: "#fd7e14",
   closed: "#198754",
   rejected: "#dc3545",
 };

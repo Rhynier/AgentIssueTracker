@@ -4,6 +4,8 @@ import {
   addIssue,
   getNextIssue,
   returnIssue,
+  completeIssue,
+  getNextReviewItem,
   closeIssue,
 } from "./issueStore.js";
 
@@ -46,15 +48,21 @@ export function createMcpServer(): McpServer {
 
   server.tool(
     "get_next_issue",
-    "Retrieve the next available issue to work on (FIFO order). Sets status to in_progress.",
+    "Retrieve the next available issue to work on (FIFO order). Sets status to in_progress. Optionally filter by classification to prioritize issue types.",
     {
       agent: z
         .string()
         .describe("Name or ID of the agent picking up this issue"),
+      classification: z
+        .enum(["bug", "improvement", "feature"])
+        .optional()
+        .describe(
+          "Optional classification filter — only return issues of this type"
+        ),
     },
-    async ({ agent }) => {
+    async ({ agent, classification }) => {
       try {
-        const issue = await getNextIssue(agent);
+        const issue = await getNextIssue(agent, classification);
         if (!issue) {
           return {
             content: [
@@ -100,6 +108,76 @@ export function createMcpServer(): McpServer {
             {
               type: "text",
               text: `Issue ${issue.id} returned to 'created' status.\nComment recorded.`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text", text: `Error: ${(err as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "complete_issue",
+    "Mark an issue as completed and ready for code review",
+    {
+      issue_id: z.string().uuid().describe("UUID of the issue to complete"),
+      comment: z
+        .string()
+        .describe("Summary of the work done on this issue"),
+      agent: z
+        .string()
+        .describe("Name or ID of the agent completing this issue"),
+    },
+    async ({ issue_id, comment, agent }) => {
+      try {
+        const issue = await completeIssue(issue_id, comment, agent);
+        return {
+          content: [
+            {
+              type: "text",
+              text: `Issue ${issue.id} marked as 'completed' and ready for review.\nComment recorded.`,
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text", text: `Error: ${(err as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "get_next_review_item",
+    "Retrieve the next completed issue to review (FIFO order). Sets status to in_review.",
+    {
+      agent: z
+        .string()
+        .describe("Name or ID of the reviewing agent"),
+    },
+    async ({ agent }) => {
+      try {
+        const issue = await getNextReviewItem(agent);
+        if (!issue) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "No issues available with status 'completed'.",
+              },
+            ],
+          };
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(issue, null, 2),
             },
           ],
         };

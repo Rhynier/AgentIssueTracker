@@ -2,7 +2,7 @@
 
 AgentIssueTracker is a single Node.js process that exposes two interfaces simultaneously:
 
-- An **MCP server** over stdio, giving AI agents four tools to manage issues.
+- An **MCP server** over stdio, giving AI agents six tools to manage issues.
 - An **HTTP server** (Express) on a configurable port, giving humans a read-only web UI.
 
 Both interfaces share the same in-memory store, which is persisted to a single JSON file.
@@ -21,7 +21,7 @@ Both interfaces share the same in-memory store, which is persisted to a single J
      ┌───────────▼──────────┐ ┌──────────▼──────────┐
      │     mcpServer.ts     │ │    webServer.ts      │
      │  McpServer instance  │ │  Express app         │
-     │  4 tool definitions  │ │  GET /  (HTML table) │
+     │  6 tool definitions  │ │  GET /  (HTML table) │
      │  Zod input schemas   │ │  GET /health  (JSON) │
      └───────────┬──────────┘ └──────────┬───────────┘
                  │                       │
@@ -34,6 +34,8 @@ Both interfaces share the same in-memory store, which is persisted to a single J
                  │  addIssue             │
                  │  getNextIssue         │
                  │  returnIssue          │
+                 │  completeIssue        │
+                 │  getNextReviewItem    │
                  │  closeIssue           │
                  │  getAllIssues         │
                  │  getIssuesByStatus    │
@@ -75,7 +77,7 @@ Every operation that mutates an issue appends one entry: `{ timestamp, agent, ac
 
 ### Comment
 
-`return_issue` and `close_issue` both append a `{ timestamp, agent, text }` comment. Comments are separate from history entries: history records *what happened*, comments record *why*.
+`return_issue`, `complete_issue`, and `close_issue` each append a `{ timestamp, agent, text }` comment. Comments are separate from history entries: history records *what happened*, comments record *why*.
 
 ---
 
@@ -86,10 +88,18 @@ Every operation that mutates an issue appends one entry: `{ timestamp, agent, ac
               │
               ▼
           "created"  ◄──────────── return_issue (with comment)
-              │
-              │  get_next_issue
-              ▼
-          "in_progress"
+              │                        ▲          ▲
+              │  get_next_issue        │          │
+              ▼                        │          │
+          "in_progress"                │          │
+              │                        │          │
+              │  complete_issue        │          │
+              ▼                        │          │
+          "completed" ─────────────────┘          │
+              │                                   │
+              │  get_next_review_item              │
+              ▼                                   │
+          "in_review" ────────────────────────────┘
               │
         close_issue
        ┌──────┴──────┐
@@ -99,7 +109,9 @@ Every operation that mutates an issue appends one entry: `{ timestamp, agent, ac
 
 Transitions are enforced in `issueStore.ts`:
 
-- `get_next_issue` only considers issues with `status === "created"`.
+- `get_next_issue` only considers issues with `status === "created"`. Accepts an optional `classification` filter.
+- `complete_issue` rejects issues already in `"closed"` or `"rejected"`.
+- `get_next_review_item` only considers issues with `status === "completed"`.
 - `return_issue` rejects issues already in `"closed"` or `"rejected"`.
 - `close_issue` rejects issues already in `"closed"` or `"rejected"`.
 - There is no transition from a closed state back to open; closed is terminal.
@@ -108,7 +120,7 @@ Transitions are enforced in `issueStore.ts`:
 
 ## MCP Tools
 
-The server is registered as `agent-issue-tracker` version `1.0.0`. All four tools follow the same pattern: validate inputs with Zod, call the corresponding `issueStore` function, catch errors and return them as `{ isError: true }` so the calling agent receives a readable message rather than a protocol fault.
+The server is registered as `agent-issue-tracker` version `1.0.0`. All six tools follow the same pattern: validate inputs with Zod, call the corresponding `issueStore` function, catch errors and return them as `{ isError: true }` so the calling agent receives a readable message rather than a protocol fault.
 
 ### `add_issue`
 
@@ -126,8 +138,9 @@ Returns: confirmation text with the new issue ID and timestamp.
 | Parameter | Type | Notes |
 |---|---|---|
 | `agent` | string | Recorded in history |
+| `classification` | `"bug" \| "improvement" \| "feature"` (optional) | Filter candidates by type |
 
-Selects the oldest `"created"` issue (FIFO — insertion-order, first candidate by array index). Sets it to `"in_progress"`. Returns the full issue as a JSON string, or a plain-text message if the queue is empty.
+Selects the oldest `"created"` issue (FIFO — insertion-order, first candidate by array index). When `classification` is provided, only issues of that type are considered. Sets it to `"in_progress"`. Returns the full issue as a JSON string, or a plain-text message if the queue is empty.
 
 ### `return_issue`
 
@@ -139,6 +152,24 @@ Selects the oldest `"created"` issue (FIFO — insertion-order, first candidate 
 
 Returns the issue to `"created"` status. Intended for cases where an agent cannot complete the work — the comment should explain why.
 
+### `complete_issue`
+
+| Parameter | Type | Notes |
+|---|---|---|
+| `issue_id` | UUID string | Must exist and not be in a terminal state |
+| `comment` | string | Appended to `comments[]` |
+| `agent` | string | Recorded in history |
+
+Marks an issue as `"completed"` — ready for code review. The developer agent calls this after finishing work, instead of closing the issue directly.
+
+### `get_next_review_item`
+
+| Parameter | Type | Notes |
+|---|---|---|
+| `agent` | string | Recorded in history |
+
+Selects the oldest `"completed"` issue (FIFO). Sets it to `"in_review"`. Returns the full issue as a JSON string, or a plain-text message if no issues are ready for review. The code-reviewer agent uses this to pick up work.
+
 ### `close_issue`
 
 | Parameter | Type | Notes |
@@ -148,7 +179,7 @@ Returns the issue to `"created"` status. Intended for cases where an agent canno
 | `comment` | string | Appended to `comments[]` |
 | `agent` | string | Recorded in history |
 
-Terminal operation. Sets status to `resolution`. Cannot be undone via the API.
+Terminal operation. Sets status to `resolution`. Cannot be undone via the API. In the review workflow, the code-reviewer agent calls this after reviewing an `"in_review"` issue.
 
 ---
 
@@ -170,7 +201,7 @@ Issues are persisted to a single JSON file with shape `{ "issues": [...] }`.
 
 A single Express application serves two routes:
 
-- `GET /` — renders an HTML page listing all issues. Accepts an optional `?status=` query parameter (`created`, `in_progress`, `closed`, `rejected`) to filter the table. The page includes a `<meta http-equiv="refresh" content="30">` tag for automatic polling.
+- `GET /` — renders an HTML page listing all issues. Accepts an optional `?status=` query parameter (`created`, `in_progress`, `completed`, `in_review`, `closed`, `rejected`) to filter the table. The page includes a `<meta http-equiv="refresh" content="30">` tag for automatic polling.
 - `GET /health` — returns `{ "status": "ok", "issueCount": N }` for monitoring.
 
 The HTML is rendered as a template literal inside `webServer.ts`; there are no static asset files or external templating dependencies. All user-supplied strings are HTML-escaped before insertion.

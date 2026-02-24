@@ -56,10 +56,17 @@ export async function addIssue(
  * Sets its status to "in_progress" and records a history entry.
  * Returns null if no issues are available.
  */
-export async function getNextIssue(agent: string): Promise<Issue | null> {
+export async function getNextIssue(
+  agent: string,
+  classification?: IssueClassification
+): Promise<Issue | null> {
   const candidates = store.issues
     .map((issue, index) => ({ issue, index }))
-    .filter(({ issue }) => issue.status === "created");
+    .filter(
+      ({ issue }) =>
+        issue.status === "created" &&
+        (classification === undefined || issue.classification === classification)
+    );
 
   if (candidates.length === 0) return null;
 
@@ -120,6 +127,84 @@ export async function returnIssue(
       },
     ],
     comments: [...issue.comments, { timestamp, agent, text: comment }],
+  };
+
+  await saveIssues(store);
+  return store.issues[index]!;
+}
+
+/**
+ * Tool: complete_issue
+ * Marks an issue as completed (ready for review).
+ * Adds a comment and a history entry.
+ * Throws if the issue is not found or is in a terminal state.
+ */
+export async function completeIssue(
+  issueId: string,
+  comment: string,
+  agent: string
+): Promise<Issue> {
+  const index = store.issues.findIndex((i) => i.id === issueId);
+  if (index === -1) {
+    throw new Error(`Issue not found: ${issueId}`);
+  }
+  const issue = store.issues[index]!;
+  if (issue.status === "closed" || issue.status === "rejected") {
+    throw new Error(
+      `Cannot complete issue ${issueId}: it is already closed (${issue.status})`
+    );
+  }
+
+  const timestamp = now();
+  store.issues[index] = {
+    ...issue,
+    status: "completed",
+    modifiedAt: timestamp,
+    history: [
+      ...issue.history,
+      {
+        timestamp,
+        agent,
+        action: "Issue marked as completed, ready for review",
+      },
+    ],
+    comments: [...issue.comments, { timestamp, agent, text: comment }],
+  };
+
+  await saveIssues(store);
+  return store.issues[index]!;
+}
+
+/**
+ * Tool: get_next_review_item
+ * Returns the oldest issue with status "completed" (FIFO).
+ * Sets its status to "in_review" and records a history entry.
+ * Returns null if no issues are ready for review.
+ */
+export async function getNextReviewItem(
+  agent: string
+): Promise<Issue | null> {
+  const candidates = store.issues
+    .map((issue, index) => ({ issue, index }))
+    .filter(({ issue }) => issue.status === "completed");
+
+  if (candidates.length === 0) return null;
+
+  const { issue, index } = candidates[0]!;
+
+  const timestamp = now();
+  store.issues[index] = {
+    ...issue,
+    status: "in_review",
+    modifiedAt: timestamp,
+    history: [
+      ...issue.history,
+      {
+        timestamp,
+        agent,
+        action: "Issue picked up for review and set to in_review",
+      },
+    ],
   };
 
   await saveIssues(store);

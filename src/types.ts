@@ -3,6 +3,8 @@ export type IssueClassification = "bug" | "improvement" | "feature";
 export type IssueStatus =
   | "created"
   | "in_progress"
+  | "completed"
+  | "in_review"
   | "closed"
   | "rejected";
 

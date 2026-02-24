@@ -166,6 +166,163 @@ describe("getNextIssue", () => {
 });
 
 // ---------------------------------------------------------------------------
+// getNextIssue — classification filter
+// ---------------------------------------------------------------------------
+describe("getNextIssue with classification filter", () => {
+  it("returns only issues matching the given classification", async () => {
+    await store.addIssue("Feature A", "D", "feature", "agentA");
+    const bug = await store.addIssue("Bug B", "D", "bug", "agentA");
+
+    const picked = await store.getNextIssue("agentB", "bug");
+    expect(picked?.id).toBe(bug.id);
+    expect(picked?.classification).toBe("bug");
+  });
+
+  it("returns null when no issues match the classification", async () => {
+    await store.addIssue("Feature A", "D", "feature", "agentA");
+
+    const picked = await store.getNextIssue("agentB", "bug");
+    expect(picked).toBeNull();
+  });
+
+  it("returns FIFO order within the filtered classification", async () => {
+    const first = await store.addIssue("Bug 1", "D", "bug", "agentA");
+    await store.addIssue("Bug 2", "D", "bug", "agentA");
+
+    const picked = await store.getNextIssue("agentB", "bug");
+    expect(picked?.id).toBe(first.id);
+  });
+
+  it("returns the oldest created issue when no classification is given", async () => {
+    const first = await store.addIssue("Feature A", "D", "feature", "agentA");
+    await store.addIssue("Bug B", "D", "bug", "agentA");
+
+    const picked = await store.getNextIssue("agentB");
+    expect(picked?.id).toBe(first.id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// completeIssue
+// ---------------------------------------------------------------------------
+describe("completeIssue", () => {
+  it("throws when the issue ID is not found", async () => {
+    await expect(
+      store.completeIssue("00000000-0000-4000-8000-000000000000", "done", "agentA"),
+    ).rejects.toThrow("not found");
+  });
+
+  it("throws when the issue is already 'closed'", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    await store.closeIssue(issue.id, "closed", "done", "agentA");
+
+    await expect(
+      store.completeIssue(issue.id, "finished", "agentA"),
+    ).rejects.toThrow("already closed");
+  });
+
+  it("throws when the issue is already 'rejected'", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    await store.closeIssue(issue.id, "rejected", "nope", "agentA");
+
+    await expect(
+      store.completeIssue(issue.id, "finished", "agentA"),
+    ).rejects.toThrow("already closed");
+  });
+
+  it("sets the issue status to 'completed'", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    const completed = await store.completeIssue(issue.id, "work done", "agentA");
+    expect(completed.status).toBe("completed");
+  });
+
+  it("appends the comment to the issue", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    const completed = await store.completeIssue(issue.id, "all tasks finished", "agentB");
+    expect(completed.comments).toHaveLength(1);
+    expect(completed.comments[0]?.text).toBe("all tasks finished");
+    expect(completed.comments[0]?.agent).toBe("agentB");
+  });
+
+  it("appends a history entry for the completion", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    const completed = await store.completeIssue(issue.id, "done", "agentB");
+    const lastEntry = completed.history.at(-1);
+    expect(lastEntry?.agent).toBe("agentB");
+    expect(lastEntry?.action).toContain("completed");
+  });
+
+  it("calls saveIssues after completing", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    mockSaveIssues.mockClear();
+    await store.completeIssue(issue.id, "done", "agentA");
+    expect(mockSaveIssues).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getNextReviewItem
+// ---------------------------------------------------------------------------
+describe("getNextReviewItem", () => {
+  it("returns null when the store is empty", async () => {
+    const result = await store.getNextReviewItem("reviewer");
+    expect(result).toBeNull();
+  });
+
+  it("returns null when there are no 'completed' issues", async () => {
+    await store.addIssue("A", "D", "bug", "agentA");
+    const result = await store.getNextReviewItem("reviewer");
+    expect(result).toBeNull();
+  });
+
+  it("transitions the issue to 'in_review'", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    await store.completeIssue(issue.id, "done", "agentA");
+    const picked = await store.getNextReviewItem("reviewer");
+    expect(picked?.status).toBe("in_review");
+  });
+
+  it("appends a history entry for the review pick-up", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    await store.completeIssue(issue.id, "done", "agentA");
+    const picked = await store.getNextReviewItem("reviewer");
+    const lastEntry = picked?.history.at(-1);
+    expect(lastEntry?.agent).toBe("reviewer");
+    expect(lastEntry?.action).toContain("in_review");
+  });
+
+  it("returns issues in FIFO order (oldest completed first)", async () => {
+    const first = await store.addIssue("First", "D", "bug", "agentA");
+    const second = await store.addIssue("Second", "D", "bug", "agentA");
+
+    await store.getNextIssue("agentA"); // picks first
+    await store.getNextIssue("agentA"); // picks second
+    await store.completeIssue(first.id, "done", "agentA");
+    await store.completeIssue(second.id, "done", "agentA");
+
+    const picked = await store.getNextReviewItem("reviewer");
+    expect(picked?.id).toBe(first.id);
+  });
+
+  it("calls saveIssues after picking for review", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    await store.completeIssue(issue.id, "done", "agentA");
+    mockSaveIssues.mockClear();
+    await store.getNextReviewItem("reviewer");
+    expect(mockSaveIssues).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // returnIssue
 // ---------------------------------------------------------------------------
 describe("returnIssue", () => {
@@ -226,6 +383,23 @@ describe("returnIssue", () => {
     mockSaveIssues.mockClear();
     await store.returnIssue(issue.id, "reason", "agentB");
     expect(mockSaveIssues).toHaveBeenCalledTimes(1);
+  });
+
+  it("can return a 'completed' issue back to 'created'", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    await store.completeIssue(issue.id, "done", "agentA");
+    const returned = await store.returnIssue(issue.id, "needs rework", "reviewer");
+    expect(returned.status).toBe("created");
+  });
+
+  it("can return an 'in_review' issue back to 'created'", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    await store.completeIssue(issue.id, "done", "agentA");
+    await store.getNextReviewItem("reviewer");
+    const returned = await store.returnIssue(issue.id, "review failed", "reviewer");
+    expect(returned.status).toBe("created");
   });
 });
 
@@ -302,6 +476,24 @@ describe("closeIssue", () => {
   it("can close a 'created' issue directly (no in_progress step required)", async () => {
     const issue = await store.addIssue("A", "D", "bug", "agentA");
     const closed = await store.closeIssue(issue.id, "rejected", "duplicate", "agentA");
+    expect(closed.status).toBe("rejected");
+  });
+
+  it("can close an 'in_review' issue as 'closed'", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    await store.completeIssue(issue.id, "done", "agentA");
+    await store.getNextReviewItem("reviewer");
+    const closed = await store.closeIssue(issue.id, "closed", "review approved", "reviewer");
+    expect(closed.status).toBe("closed");
+  });
+
+  it("can close an 'in_review' issue as 'rejected'", async () => {
+    const issue = await store.addIssue("A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA");
+    await store.completeIssue(issue.id, "done", "agentA");
+    await store.getNextReviewItem("reviewer");
+    const closed = await store.closeIssue(issue.id, "rejected", "does not meet requirements", "reviewer");
     expect(closed.status).toBe("rejected");
   });
 });

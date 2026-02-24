@@ -143,8 +143,8 @@ describe("GET /?status=", () => {
     expect(res.text).toContain("closed");
   });
 
-  it("accepts all four valid statuses", async () => {
-    const statuses = ["created", "in_progress", "closed", "rejected"] as const;
+  it("accepts all valid statuses", async () => {
+    const statuses = ["created", "in_progress", "completed", "in_review", "closed", "rejected"] as const;
     const app = webServer.createWebServer();
     for (const status of statuses) {
       mockGetIssuesByStatus.mockReturnValue([]);
@@ -160,6 +160,25 @@ describe("GET /?status=", () => {
     await supertest(app).get("/?status=all");
     expect(mockGetAllIssues).toHaveBeenCalledTimes(1);
     expect(mockGetIssuesByStatus).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// New status rendering
+// ---------------------------------------------------------------------------
+describe("new status badges", () => {
+  it("renders 'completed' status badge", async () => {
+    mockGetAllIssues.mockReturnValue([makeIssue({ status: "completed" })]);
+    const app = webServer.createWebServer();
+    const res = await supertest(app).get("/");
+    expect(res.text).toContain("completed");
+  });
+
+  it("renders 'in_review' status badge as 'in review'", async () => {
+    mockGetAllIssues.mockReturnValue([makeIssue({ status: "in_review" })]);
+    const app = webServer.createWebServer();
+    const res = await supertest(app).get("/");
+    expect(res.text).toContain("in review");
   });
 });
 

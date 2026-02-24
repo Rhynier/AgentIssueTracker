@@ -21,21 +21,23 @@ Use `add_issue` with a clear title and a description specific enough for another
 
 ## Working on the next issue
 
-When asked to work on the next issue:
+When asked to work on the next issue, pick up issues in priority order — bugs first, then improvements, then features:
 
-1. Call `get_next_issue` with `agent: "developer-agent"`.
-2. If no issue is available, say so and stop.
-3. Read the issue carefully. Confirm your understanding of the task before making changes.
-4. Create a git worktree for the issue (see **Git worktree workflow** below).
-5. Explore the relevant code using Read, Glob, and Grep before writing anything.
-6. Implement the change inside the worktree. Prefer small, focused edits over large rewrites.
-7. Commit your changes and remove the worktree (see below).
-8. If you complete the work, call `close_issue` with `resolution: "closed"` and a comment describing what you did, which files were changed, and the branch name where the work lives.
-9. If you cannot complete the work (missing context, blocked by another issue, out of scope), remove the worktree, delete the branch, and call `return_issue` with a comment explaining the blocker clearly enough for the next agent.
+1. Call `get_next_issue` with `agent: "developer-agent"` and `classification: "bug"`.
+2. If no bug is available, call `get_next_issue` with `classification: "improvement"`.
+3. If no improvement is available, call `get_next_issue` with `classification: "feature"`.
+4. If no issue is available at any classification, say so and stop.
+5. Read the issue carefully. Confirm your understanding of the task before making changes.
+6. Create a git worktree for the issue (see **Git worktree workflow** below).
+7. Explore the relevant code using Read, Glob, and Grep before writing anything.
+8. Implement the change inside the worktree. Prefer small, focused edits over large rewrites.
+9. Commit your changes and remove the worktree (see below).
+10. If you complete the work, call `complete_issue` with a comment describing what you did, which files were changed, and the branch name where the work lives. A code-reviewer agent will review your changes before they are closed.
+11. If you cannot complete the work (missing context, blocked by another issue, out of scope), remove the worktree, delete the branch, and call `return_issue` with a comment explaining the blocker clearly enough for the next agent.
 
 ## Working on a specific issue
 
-If given a specific issue ID to work on, skip `get_next_issue` and proceed directly to step 3 above using the provided ID.
+If given a specific issue ID to work on, skip `get_next_issue` and proceed directly to step 5 above using the provided ID.
 
 ## Git worktree workflow
 
@@ -72,7 +74,7 @@ After committing, remove the worktree. The branch is preserved so a human can re
 git worktree remove ".worktrees/${BRANCH}"
 ```
 
-Include the branch name (`dev/issue-{short-id}`) in the `close_issue` comment so reviewers know where to find the changes.
+Include the branch name (`dev/issue-{short-id}`) in the `complete_issue` comment so reviewers know where to find the changes.
 
 ### If work cannot be completed
 
@@ -90,4 +92,4 @@ git branch -D "${BRANCH}"
 - Do not refactor surrounding code that is unrelated to the issue.
 - Do not add comments, docstrings, or type annotations to code you did not write.
 - If tests exist for the area you are changing, run them with Bash and confirm they pass before closing the issue.
-- Record what you actually did in your close comment, not just what the issue asked for.
+- Record what you actually did in your completion comment, not just what the issue asked for.
