@@ -9,17 +9,23 @@ npm run dev          # Run directly with tsx (no build step, recommended for dev
 npm run dev:watch    # Same, with auto-restart on file changes
 npm run build        # Compile TypeScript to dist/
 npm start            # Run compiled output (requires build first)
+npm test             # Run unit tests (vitest, single pass)
+npm run test:watch   # Run tests in watch mode
 ```
 
 ## File Map
 
 ```
-src/types.ts       Shared interfaces — Issue, HistoryEntry, Comment, IssueStore
-src/storage.ts     JSON file persistence — loadIssues() and saveIssues()
-src/issueStore.ts  Business logic — in-memory store + all four CRUD operations
-src/mcpServer.ts   MCP tool registrations — delegates to issueStore
-src/webServer.ts   Express web UI — HTML table with ?status= filter
-src/index.ts       Entry point — starts web server, then connects MCP stdio transport
+src/types.ts            Shared interfaces — Issue, HistoryEntry, Comment, IssueStore
+src/storage.ts          JSON file persistence — loadIssues() and saveIssues()
+src/issueStore.ts       Business logic — in-memory store + all four CRUD operations
+src/mcpServer.ts        MCP tool registrations — delegates to issueStore
+src/webServer.ts        Express web UI — HTML table with ?status= filter
+src/index.ts            Entry point — starts web server, then connects MCP stdio transport
+src/storage.test.ts     Tests for loadIssues() and saveIssues()
+src/issueStore.test.ts  Tests for all four CRUD operations
+src/webServer.test.ts   Tests for HTTP routes and HTML rendering
+vitest.config.ts        Vitest configuration
 ```
 
 Runtime artefacts (not in source control):
@@ -68,6 +74,8 @@ All tools append to the issue's `history[]` array (timestamp + agent + action de
 **Module resolution requires `.js` extensions.** The project uses `"module": "NodeNext"` in tsconfig. All internal imports must end in `.js` even though the source files are `.ts`. The MCP SDK also ships as native ESM and requires this setting.
 
 **`issueStore.ts` is a singleton.** The store is loaded once at module initialisation (`let store = loadIssues()`). Do not call `loadIssues()` again elsewhere — it reads from disk and would overwrite in-memory state.
+
+**Test isolation for the singleton.** Because the store is module-level state, tests use `vi.doMock('./storage.js', ...)` + `vi.resetModules()` in `beforeEach` to get a fresh module (and therefore a fresh empty store) for each test. Do not add a `resetStore()` export to production code — the test pattern already handles this cleanly.
 
 ## MCP Client Configuration
 

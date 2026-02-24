@@ -8,6 +8,7 @@ An MCP (Model Context Protocol) server for tracking issues across multiple AI ag
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Running the server](#running-the-server)
+- [Testing](#testing)
 - [Configuring in Claude Desktop](#configuring-in-claude-desktop)
 - [Configuring in VS Code Copilot Chat](#configuring-in-vs-code-copilot-chat)
 - [Web UI](#web-ui)
@@ -81,6 +82,23 @@ Startup output appears on stderr (stdout is reserved for the MCP protocol):
 ```
 
 `issues.json` is created automatically the first time an issue is added.
+
+---
+
+## Testing
+
+Unit tests are written with [Vitest](https://vitest.dev/) and cover the storage layer, all four CRUD operations in the issue store, and the web server routes.
+
+```bash
+npm test             # Run full test suite once
+npm run test:watch   # Watch mode for development
+```
+
+| Test file | What's covered |
+|---|---|
+| `src/storage.test.ts` | `loadIssues` / `saveIssues` — missing file, JSON round-trip, atomic `.tmp`→rename write |
+| `src/issueStore.test.ts` | `addIssue`, `getNextIssue` (FIFO), `returnIssue`, `closeIssue` — status transitions, history, comments, error cases |
+| `src/webServer.test.ts` | `GET /`, `GET /?status=`, `GET /health` — HTML content, status filter, invalid filter fallback, XSS escaping |
 
 ---
 
