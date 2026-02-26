@@ -1,6 +1,6 @@
 # AgentIssueTracker — Agent Context
 
-This is an MCP server that lets AI agents track and coordinate work on shared issues. It exposes seven MCP tools over stdio and a read-only web UI over HTTP. Both run in the same Node.js process.
+This is an MCP server that lets AI agents track and coordinate work on shared issues. It exposes eight MCP tools over stdio and a read-only web UI over HTTP. Both run in the same Node.js process.
 
 ## Commands
 
@@ -20,7 +20,7 @@ npm run test:watch   # Run tests in watch mode
 ```
 src/types.ts            Shared interfaces — Issue, HistoryEntry, Comment, IssueStore
 src/storage.ts          JSON file persistence — loadIssues() and saveIssues()
-src/issueStore.ts       Business logic — in-memory store + all seven operations (incl. read-only listIssues)
+src/issueStore.ts       Business logic — in-memory store + all eight operations (incl. read-only listIssues, peekNextIssue)
 src/mcpServer.ts        MCP tool registrations — delegates to issueStore
 src/webServer.ts        Express web UI — HTML table with ?status= filter
 src/index.ts            Entry point — starts web server, then connects MCP stdio transport
@@ -57,13 +57,14 @@ Closed states (`closed`, `rejected`) are terminal — no tool transitions out of
 |---|---|---|
 | `add_issue` | title, description, classification, agent | Creates issue with status `created` |
 | `list_issues` | status?, classification?, skip?, take? | Lists issues matching optional filters with pagination (read-only, no state change) |
+| `peek_next_issue` | classifications (ordered array) | Returns oldest `created` issue matching first classification with results; falls through to next classification if none found (read-only, no state change) |
 | `get_next_issue` | agent, classification? | Takes oldest `created` issue (FIFO, optionally filtered by classification), sets it `in_progress`, returns full JSON |
 | `return_issue` | issue_id, comment, agent | Puts issue back to `created`; appends comment |
 | `complete_issue` | issue_id, comment, agent | Sets issue to `completed` (ready for review); appends comment |
 | `get_next_review_item` | agent | Takes oldest `completed` issue (FIFO), sets it `in_review`, returns full JSON |
 | `close_issue` | issue_id, resolution, comment, agent | Sets `closed` or `rejected`; appends comment |
 
-All tools append to the issue's `history[]` array (timestamp + agent + action description).
+All mutating tools append to the issue's `history[]` array (timestamp + agent + action description). Read-only tools (`list_issues`, `peek_next_issue`) do not.
 
 ## Environment Variables
 

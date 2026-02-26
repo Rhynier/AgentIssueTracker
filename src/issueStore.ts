@@ -33,6 +33,26 @@ export function listIssues(
 }
 
 /**
+ * Tool: peek_next_issue
+ * Returns the oldest issue with status "created" matching the first
+ * classification in the provided priority list. If no match is found
+ * for a classification, the next one is tried.
+ * Read-only — does not modify any issue state.
+ */
+export function peekNextIssue(
+  classifications: IssueClassification[]
+): Issue | null {
+  for (const classification of classifications) {
+    const match = store.issues.find(
+      (issue) =>
+        issue.status === "created" && issue.classification === classification
+    );
+    if (match) return match;
+  }
+  return null;
+}
+
+/**
  * Tool: add_issue
  * Creates a new issue with status "created".
  */
