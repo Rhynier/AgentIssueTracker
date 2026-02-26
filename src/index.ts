@@ -29,7 +29,8 @@ async function main(): Promise<void> {
       }
 
       // Brand new session
-      const transport = new StreamableHTTPServerTransport({
+      let transport: StreamableHTTPServerTransport;
+      transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () => randomUUID(),
         onsessioninitialized: (newId) => {
           transports.set(newId, transport);
