@@ -212,6 +212,76 @@ describe("listIssues", () => {
 });
 
 // ---------------------------------------------------------------------------
+// peekNextIssue
+// ---------------------------------------------------------------------------
+describe("peekNextIssue", () => {
+  it("returns null when the store is empty", () => {
+    const result = store.peekNextIssue(["bug"]);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when no 'created' issues match any classification", async () => {
+    await store.addIssue("Feature A", "D", "feature", "agentA");
+    const result = store.peekNextIssue(["bug", "improvement"]);
+    expect(result).toBeNull();
+  });
+
+  it("returns null when matching issues exist but are not in 'created' status", async () => {
+    await store.addIssue("Bug A", "D", "bug", "agentA");
+    await store.getNextIssue("agentA"); // transitions to in_progress
+    const result = store.peekNextIssue(["bug"]);
+    expect(result).toBeNull();
+  });
+
+  it("returns the oldest 'created' issue matching the first classification", async () => {
+    const bug1 = await store.addIssue("Bug 1", "D", "bug", "agentA");
+    await store.addIssue("Bug 2", "D", "bug", "agentA");
+    const result = store.peekNextIssue(["bug"]);
+    expect(result?.id).toBe(bug1.id);
+  });
+
+  it("falls through to the next classification when the first has no matches", async () => {
+    const feature = await store.addIssue("Feature A", "D", "feature", "agentA");
+    const result = store.peekNextIssue(["bug", "feature"]);
+    expect(result?.id).toBe(feature.id);
+  });
+
+  it("respects classification priority order", async () => {
+    await store.addIssue("Feature A", "D", "feature", "agentA");
+    const bug = await store.addIssue("Bug A", "D", "bug", "agentA");
+
+    // bug is listed first in the priority array, so it should be returned
+    // even though feature was created earlier
+    const result = store.peekNextIssue(["bug", "feature"]);
+    expect(result?.id).toBe(bug.id);
+  });
+
+  it("returns FIFO order within the matched classification", async () => {
+    const imp1 = await store.addIssue("Improvement 1", "D", "improvement", "agentA");
+    await store.addIssue("Improvement 2", "D", "improvement", "agentA");
+    const result = store.peekNextIssue(["improvement"]);
+    expect(result?.id).toBe(imp1.id);
+  });
+
+  it("does not modify the issue status (read-only)", async () => {
+    await store.addIssue("Bug A", "D", "bug", "agentA");
+    const peeked = store.peekNextIssue(["bug"]);
+    expect(peeked?.status).toBe("created");
+
+    // Verify the issue in the store is still 'created'
+    const allIssues = store.getAllIssues();
+    expect(allIssues[0]?.status).toBe("created");
+  });
+
+  it("does not call saveIssues (read-only)", async () => {
+    await store.addIssue("Bug A", "D", "bug", "agentA");
+    mockSaveIssues.mockClear();
+    store.peekNextIssue(["bug"]);
+    expect(mockSaveIssues).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getNextIssue
 // ---------------------------------------------------------------------------
 describe("getNextIssue", () => {

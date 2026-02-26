@@ -8,6 +8,7 @@ import {
   getNextReviewItem,
   closeIssue,
   listIssues,
+  peekNextIssue,
 } from "./issueStore.js";
 
 export function createMcpServer(): McpServer {
@@ -87,6 +88,51 @@ export function createMcpServer(): McpServer {
             {
               type: "text",
               text: JSON.stringify({ count: issues.length, issues: summary }, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [{ type: "text", text: `Error: ${(err as Error).message}` }],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "peek_next_issue",
+    "Preview the next available issue by classification priority without claiming it. " +
+      "Checks classifications in the order given and returns the oldest 'created' issue " +
+      "matching the first classification with available issues. Read-only — does not " +
+      "change issue status.",
+    {
+      classifications: z
+        .array(z.enum(["bug", "improvement", "feature"]))
+        .min(1)
+        .describe(
+          "Ordered list of classifications to check. Returns the oldest 'created' issue " +
+            "matching the first classification; if none, tries the next, and so on."
+        ),
+    },
+    async ({ classifications }) => {
+      try {
+        const issue = peekNextIssue(classifications);
+        if (!issue) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: "No issues available matching the requested classifications.",
+              },
+            ],
+          };
+        }
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(issue, null, 2),
             },
           ],
         };
