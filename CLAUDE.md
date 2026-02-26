@@ -1,6 +1,6 @@
 # AgentIssueTracker — Agent Context
 
-This is an MCP server that lets AI agents track and coordinate work on shared issues. It exposes eight MCP tools over stdio and a read-only web UI over HTTP. Both run in the same Node.js process.
+This is an MCP server that lets AI agents track and coordinate work on shared issues. It exposes eight MCP tools over HTTP (StreamableHTTP transport) and a read-only web UI, both served from the same Node.js process on a single port.
 
 ## Commands
 
@@ -23,7 +23,7 @@ src/storage.ts          JSON file persistence — loadIssues() and saveIssues()
 src/issueStore.ts       Business logic — in-memory store + all eight operations (incl. read-only listIssues, peekNextIssue)
 src/mcpServer.ts        MCP tool registrations — delegates to issueStore
 src/webServer.ts        Express web UI — HTML table with ?status= filter
-src/index.ts            Entry point — starts web server, then connects MCP stdio transport
+src/index.ts            Entry point — mounts MCP HTTP transport at /mcp, starts combined HTTP server
 src/storage.test.ts     Tests for loadIssues() and saveIssues()
 src/issueStore.test.ts  Tests for all issue store operations (incl. listIssues)
 src/webServer.test.ts   Tests for HTTP routes and HTML rendering
@@ -70,12 +70,12 @@ All mutating tools append to the issue's `history[]` array (timestamp + agent + 
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `PORT` | `3000` | HTTP port for the web UI |
+| `PORT` | `3000` | HTTP port for both the web UI and MCP endpoint |
 | `ISSUES_FILE` | `<cwd>/issues.json` | Path to the JSON data file |
 
 ## Critical Conventions
 
-**Never use `console.log`.** stdout is the MCP JSON-RPC transport. Any non-protocol bytes written there corrupt the connection. Use `console.error` for all diagnostic output.
+**Prefer `console.error` for diagnostic output.** The codebase consistently uses `console.error` for all logging. (With HTTP transport stdout is no longer reserved for MCP protocol bytes, but keeping `console.error` is still good practice to avoid surprises.)
 
 **All mutations go through `issueStore.ts`.** The web server is read-only; it calls only `getAllIssues()` and `getIssuesByStatus()`. Never add write paths to `webServer.ts`.
 
@@ -89,53 +89,49 @@ All mutating tools append to the issue's `history[]` array (timestamp + agent + 
 
 ## MCP Client Configuration
 
-For Claude Desktop, add to `%APPDATA%\Claude\claude_desktop_config.json`:
+The server runs independently and clients connect to it over HTTP. Start the server first:
+
+```bash
+# Development (no build step)
+npm run dev
+
+# Or from the compiled build
+npm run build && npm start
+
+# Or from the single-file bundle
+npm run bundle && npm run start:bundle
+```
+
+Then configure your MCP client with the server URL. For Claude Desktop, add to
+`%APPDATA%\Claude\claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "issue-tracker": {
-      "command": "node",
-      "args": ["C:\\Source\\Prototypes\\AgentIssueTracker\\dist\\index.js"],
-      "env": {
-        "PORT": "3000"
-      }
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
 ```
 
-For development without a build step:
+If the server runs on a non-default port, set the `PORT` environment variable when starting the
+server and update the URL in the client config accordingly:
 
-```json
-{
-  "mcpServers": {
-    "issue-tracker": {
-      "command": "npx",
-      "args": ["tsx", "C:\\Source\\Prototypes\\AgentIssueTracker\\src\\index.ts"]
-    }
-  }
-}
+```bash
+PORT=4000 npm run dev
+# Client URL: http://localhost:4000/mcp
 ```
-
-Restart Claude Desktop after editing the config.
 
 ### Using the single-file bundle
 
-`npm run bundle` produces `dist/agent-issue-tracker.cjs` — a single file (~1 MB) containing all source code and dependencies. It can be copied anywhere and run with just `node`, no `npm install` or `node_modules` required.
+`npm run bundle` produces `dist/agent-issue-tracker.cjs` — a single file (~1 MB) containing all
+source code and dependencies. It can be copied anywhere and run with just `node`, no `npm install`
+or `node_modules` required:
 
-```json
-{
-  "mcpServers": {
-    "issue-tracker": {
-      "command": "node",
-      "args": ["C:\\path\\to\\agent-issue-tracker.cjs"],
-      "env": {
-        "PORT": "3000"
-      }
-    }
-  }
-}
+```bash
+node /path/to/agent-issue-tracker.cjs
+# Client URL: http://localhost:3000/mcp
 ```
 
 ## Extending This Server

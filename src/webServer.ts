@@ -160,11 +160,3 @@ export function createWebServer(): express.Application {
 
   return app;
 }
-
-export function startWebServer(port: number): void {
-  const app = createWebServer();
-  app.listen(port, () => {
-    // Use stderr — stdout is reserved for MCP JSON-RPC
-    console.error(`[WebServer] Listening on http://localhost:${port}`);
-  });
-}
