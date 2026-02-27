@@ -22,10 +22,10 @@ An MCP (Model Context Protocol) server for tracking issues across multiple AI ag
 
 ## Overview
 
-AgentIssueTracker runs as a single process with two interfaces:
+AgentIssueTracker runs as a single HTTP server process with two interfaces on the same port:
 
-- **MCP server over stdio** — AI agents connect to this and use seven tools to manage issues.
-- **HTTP server** — A browser-accessible table of all issues, filterable by status.
+- **MCP server over HTTP** — AI agents connect to the `/mcp` endpoint (StreamableHTTP transport) and use eight tools to manage issues.
+- **Web UI** — A browser-accessible table of all issues, filterable by status.
 
 Issues move through a lifecycle that includes a code-review stage:
 
@@ -63,24 +63,25 @@ The build step compiles TypeScript to `dist/`. You only need to repeat it when s
 
 ## Running the server
 
-The server is normally started automatically by your AI client when it reads the MCP configuration (see sections below). To start it manually for testing:
+The server runs independently and clients connect to it over HTTP. Start it before configuring your MCP client:
 
 ```bash
-# Production (compiled)
-npm start
+# Development (no build step, recommended)
+npm run dev
 
-# Development (no build step, restarts on file changes)
+# Development with auto-restart on file changes
 npm run dev:watch
+
+# Production (compiled)
+npm run build && npm start
 ```
 
-Startup output appears on stderr (stdout is reserved for the MCP protocol):
+Startup output appears on stderr:
 
 ```
-[Startup] Data file: C:\Source\Prototypes\AgentIssueTracker\issues.json
-[Startup] Starting web server on port 3000...
-[WebServer] Listening on http://localhost:3000
-[Startup] Starting MCP server over stdio...
-[Startup] MCP server connected. Ready.
+[Startup] Data file: C:\Source\Personal\AgentIssueTracker\issues.json
+[Startup] Web UI:       http://localhost:3000/
+[Startup] MCP endpoint: http://localhost:3000/mcp
 ```
 
 `issues.json` is created automatically the first time an issue is added.
@@ -99,64 +100,45 @@ npm run test:watch   # Watch mode for development
 | Test file | What's covered |
 |---|---|
 | `src/storage.test.ts` | `loadIssues` / `saveIssues` — missing file, JSON round-trip, atomic `.tmp`→rename write |
-| `src/issueStore.test.ts` | `addIssue`, `listIssues` (status/classification filters), `getNextIssue` (FIFO + classification filter), `completeIssue`, `getNextReviewItem`, `returnIssue`, `closeIssue` — status transitions, history, comments, error cases |
+| `src/issueStore.test.ts` | `addIssue`, `listIssues` (status/classification filters), `peekNextIssue` (classification priority, fall-through, read-only), `getNextIssue` (FIFO + classification filter), `completeIssue`, `getNextReviewItem`, `returnIssue`, `closeIssue` — status transitions, history, comments, error cases |
 | `src/webServer.test.ts` | `GET /`, `GET /?status=`, `GET /health` — HTML content, status filter, invalid filter fallback, XSS escaping |
 
 ---
 
 ## Configuring in Claude Desktop
 
-Edit `%APPDATA%\Claude\claude_desktop_config.json` (create it if it does not exist):
+Start the server first (see [Running the server](#running-the-server)), then edit `%APPDATA%\Claude\claude_desktop_config.json` (create it if it does not exist):
 
 ```json
 {
   "mcpServers": {
     "issue-tracker": {
-      "command": "node",
-      "args": ["C:\\Source\\Prototypes\\AgentIssueTracker\\dist\\index.js"],
-      "env": {
-        "PORT": "3000"
-      }
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
 ```
 
-Restart Claude Desktop. The seven issue-tracker tools will appear in the tools list in any new conversation.
+Restart Claude Desktop. The eight issue-tracker tools will appear in the tools list in any new conversation.
 
-**Development variant** (no build step required):
+If the server runs on a non-default port, set the `PORT` environment variable when starting the server and update the URL accordingly:
 
-```json
-{
-  "mcpServers": {
-    "issue-tracker": {
-      "command": "npx",
-      "args": ["tsx", "C:\\Source\\Prototypes\\AgentIssueTracker\\src\\index.ts"],
-      "env": {
-        "PORT": "3000"
-      }
-    }
-  }
-}
+```bash
+PORT=4000 npm run dev
+# Client URL: http://localhost:4000/mcp
 ```
 
 ---
 
 ## Configuring in VS Code Copilot Chat
 
-VS Code reads MCP configuration from `.vscode/mcp.json` in your workspace root. The key difference from Claude Desktop is the top-level key (`"servers"` rather than `"mcpServers"`).
-
-Create or edit `.vscode/mcp.json` in the project you want agents to track issues for:
+Start the server first (see [Running the server](#running-the-server)), then create or edit `.vscode/mcp.json` in the project you want agents to track issues for:
 
 ```json
 {
   "servers": {
     "issue-tracker": {
-      "command": "node",
-      "args": ["C:\\Source\\Prototypes\\AgentIssueTracker\\dist\\index.js"],
-      "env": {
-        "PORT": "3000"
-      }
+      "url": "http://localhost:3000/mcp"
     }
   }
 }
@@ -173,23 +155,7 @@ Once configured, switch Copilot Chat to **Agent mode** (the drop-down next to th
 > "What issues are currently in progress?"
 > "Pick up the next issue and work on it."
 
-To share the configuration with your team, commit `.vscode/mcp.json` to source control. Each developer will need the `dist/` folder built locally (or use the `npx tsx` variant above so no build is required).
-
-**Development variant** for `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "issue-tracker": {
-      "command": "npx",
-      "args": ["tsx", "C:\\Source\\Prototypes\\AgentIssueTracker\\src\\index.ts"],
-      "env": {
-        "PORT": "3000"
-      }
-    }
-  }
-}
-```
+To share the configuration with your team, commit `.vscode/mcp.json` to source control.
 
 ---
 
@@ -242,6 +208,14 @@ List issues matching optional filters. This is a read-only query — it does not
 | `take` | integer >= 1 (optional) | Maximum number of issues to return. Omit to return all remaining |
 
 Returns a JSON object with `count` (number of returned issues) and `issues` (array of summaries with `id`, `title`, `classification`, `status`, `createdAt`).
+
+### `peek_next_issue`
+
+Preview the next available issue by classification priority without claiming it. Checks classifications in the order given and returns the oldest `created` issue matching the first classification with available issues. If none match, falls through to the next classification. This is read-only — it does not change issue status.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `classifications` | array of `bug` \| `improvement` \| `feature` | Ordered list of classifications to check (at least one required) |
 
 ### `get_next_issue`
 
@@ -335,23 +309,7 @@ This uses esbuild to package all source code and dependencies into `dist/agent-i
 node agent-issue-tracker.cjs
 ```
 
-No `npm install` or `node_modules` directory is needed — just the one file and `node`.
-
-To use the bundle in Claude Desktop:
-
-```json
-{
-  "mcpServers": {
-    "issue-tracker": {
-      "command": "node",
-      "args": ["C:\\path\\to\\agent-issue-tracker.cjs"],
-      "env": {
-        "PORT": "3000"
-      }
-    }
-  }
-}
-```
+No `npm install` or `node_modules` directory is needed — just the one file and `node`. Then configure your MCP client to connect to `http://localhost:3000/mcp` (see [Configuring in Claude Desktop](#configuring-in-claude-desktop)).
 
 ---
 
@@ -380,7 +338,7 @@ Invoke them explicitly in Claude Code with `/agents` or by asking Claude to use 
 
 | Variable | Default | Description |
 |---|---|---|
-| `PORT` | `3000` | Port for the web UI |
+| `PORT` | `3000` | Port for the web UI and MCP endpoint |
 | `ISSUES_FILE` | `<cwd>/issues.json` | Path to the data file |
 
-Set these in your MCP client configuration's `env` block (see examples above).
+Set these when starting the server (e.g. `PORT=4000 npm run dev`).
